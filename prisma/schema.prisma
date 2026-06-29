@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  RESOURCE
+}
+
+model User {
+  id            String        @id @default(cuid())
+  name          String
+  email         String        @unique
+  password      String
+  role          Role          @default(RESOURCE)
+  phone         String?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  assignedPosts   CalendarEntry[]  @relation("AssignedResource")
+  adhocTasks      AdhocTask[]
+  attendance      Attendance[]
+  leaveRequests   Leave[]
+  taskCompletions TaskCompletion[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Client {
+  id          String    @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  company     String?
+  website     String?
+  notes       String?
+  logo        String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  categories  Category[]
+  calendars   CalendarEntry[]
+  adhocTasks  AdhocTask[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  description String?
+  color     String   @default("#6366f1")
+  isActive  Boolean  @default(true)
+  clientId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client    Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  calendars CalendarEntry[]
+
+  @@unique([name, clientId])
+}
+
+enum PostType {
+  POSTER
+  REEL
+  VIDEO
+  GIF
+  CAROUSEL
+  STORY
+  STATIC
+}
+
+enum CalendarStatus {
+  YET_TO_BE_DONE
+  DESIGNED
+  SHARED_TO_CLIENT
+  APPROVED
+  PR_FEEDBACK
+  CLIENT_FEEDBACK
+  SCHEDULED
+  POSTED
+  REJECTED
+  STORYBOARD_COMPLETED
+}
+
+model CalendarEntry {
+  id              String         @id @default(cuid())
+  clientId        String
+  categoryId      String
+  title           String
+  description     String?
+  postType        PostType       @default(POSTER)
+  platform        String[]       @default([])
+  creativeBrief   String?
+  caption         String?
+  hashtags        String[]
+  designDirection String?
+  referenceLinks  String[]
+  postingDate     DateTime
+  postingTime     String?
+  status          CalendarStatus @default(YET_TO_BE_DONE)
+  slaStatus       String?        @default("on_track")
+
+  creationDate      DateTime  @default(now())
+  approvalDeadline  DateTime?
+  schedulingDeadline DateTime?
+  approvalDate      DateTime?
+  schedulingDate    DateTime?
+  postedDate        DateTime?
+
+  assignedTo   String?
+  assignedUser User?     @relation("AssignedResource", fields: [assignedTo], references: [id])
+
+  links     PostLink[]
+  taskCompletions TaskCompletion[]
+  performance PerformanceEntry?
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PostLink {
+  id              String        @id @default(cuid())
+  calendarEntryId String
+  platform        String
+  url             String
+  createdAt       DateTime      @default(now())
+
+  calendarEntry CalendarEntry @relation(fields: [calendarEntryId], references: [id], onDelete: Cascade)
+}
+
+model TaskCompletion {
+  id              String        @id @default(cuid())
+  calendarEntryId String
+  userId          String
+  completedAt     DateTime      @default(now())
+  notes           String?
+
+  calendarEntry CalendarEntry @relation(fields: [calendarEntryId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id])
+}
+
+model PerformanceEntry {
+  id              String   @id @default(cuid())
+  calendarEntryId String   @unique
+  reach           Int?
+  engagement      Int?
+  likes           Int?
+  comments        Int?
+  shares          Int?
+  saves           Int?
+  updatedAt       DateTime @updatedAt
+
+  calendarEntry CalendarEntry @relation(fields: [calendarEntryId], references: [id], onDelete: Cascade)
+}
+
+enum AdhocStatus {
+  NEW
+  IN_PROGRESS
+  COMPLETED
+  NOT_APPLICABLE
+}
+
+model AdhocTask {
+  id          String      @id @default(cuid())
+  clientId    String
+  title       String
+  description String?
+  deadline    DateTime?
+  assignedTo  String?
+  status      AdhocStatus @default(NEW)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedUser User?  @relation(fields: [assignedTo], references: [id])
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  userId     String
+  date       DateTime
+  loginTime  DateTime?
+  logoutTime DateTime?
+  hoursWorked Float?
+  status     String   @default("present")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model Leave {
+  id          String   @id @default(cuid())
+  userId      String
+  startDate   DateTime
+  endDate     DateTime
+  type        String   @default("leave")
+  reason      String?
+  status      String   @default("pending")
+  appliedAt   DateTime @default(now())
+  isRed       Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
