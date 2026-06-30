@@ -75,6 +75,7 @@ export default function CalendarPage() {
   const [startDate, setStartDate] = useState(firstDay.toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(now.toISOString().split("T")[0]);
   const [clientFilter, setClientFilter] = useState("");
+  const [resourceFilter, setResourceFilter] = useState("");
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
@@ -96,7 +97,7 @@ export default function CalendarPage() {
     fetchClients();
     fetchUsers();
     fetchCategories();
-  }, [startDate, endDate, clientFilter]);
+  }, [startDate, endDate, clientFilter, resourceFilter]);
 
   async function fetchEntries() {
     try {
@@ -104,6 +105,7 @@ export default function CalendarPage() {
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
       if (clientFilter) params.set("clientId", clientFilter);
+      if (resourceFilter) params.set("assignedTo", resourceFilter);
       const res = await fetch(`/api/calendar?${params}`);
       const data = await res.json();
       setEntries(Array.isArray(data) ? data : data.data || []);
@@ -371,6 +373,16 @@ export default function CalendarPage() {
         <span className="text-gray-400 pb-2">to</span>
         <div className="w-44">
           <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+        <div className="w-56">
+          <Select
+            options={[
+              { value: "", label: "All Resources" },
+              ...users.map((u) => ({ value: u.id, label: u.name })),
+            ]}
+            value={resourceFilter}
+            onChange={(e) => setResourceFilter(e.target.value)}
+          />
         </div>
         <div className="w-56">
           <Select
