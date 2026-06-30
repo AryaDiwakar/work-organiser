@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Building2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,19 +48,30 @@ export default function LoginPage() {
     }
   };
 
+  const [logoError, setLogoError] = useState(false);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <Image
-              src="/godigitell-logo.png"
-              alt="GoDigitell"
-              width={180}
-              height={60}
-              className="mx-auto mb-4"
-              priority
-            />
+            {logoError ? (
+              <div className="flex justify-center mb-4">
+                <div className="p-3 rounded-xl bg-indigo-100">
+                  <Building2 className="h-10 w-10 text-indigo-600" />
+                </div>
+              </div>
+            ) : (
+              <Image
+                src="/godigitell-logo.png"
+                alt="GoDigitell"
+                width={180}
+                height={60}
+                className="mx-auto mb-4"
+                priority
+                onError={() => setLogoError(true)}
+              />
+            )}
             <h1 className="text-2xl font-bold text-gray-900">Work Organiser</h1>
             <p className="text-gray-500 mt-1">Sign in to your account</p>
           </div>
