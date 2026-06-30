@@ -44,7 +44,7 @@ export function Sidebar() {
   const isAdminView = role === "SUPER_ADMIN" || role === "ADMIN";
 
   const links = isAdminView
-    ? (isSuperAdmin ? adminLinks : adminLinks.filter((l) => l.label !== "Leaves" && l.label !== "Attendance"))
+    ? (isSuperAdmin ? adminLinks : adminLinks.filter((l) => !["Leaves", "Attendance", "Resources", "Settings"].includes(l.label)))
     : resourceLinks;
 
   return (
