@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, getStatusLabel, getStatusColor, getSLAStatus } from "@/lib/utils";
+import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3 } from "lucide-react";
+import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3, ClipboardList } from "lucide-react";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 
@@ -19,10 +19,22 @@ interface CalendarEntry {
   assignedUser: { id: string; name: string } | null;
 }
 
+interface AdhocTask {
+  id: string;
+  title: string;
+  description: string | null;
+  deadline: string | null;
+  status: string;
+  client: { id: string; name: string } | null;
+}
+
 export default function ResourceDashboardPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
+  const role = (session?.user as any)?.role;
+  const isAdmin = isAdminRole(role);
   const [tasks, setTasks] = useState<CalendarEntry[]>([]);
+  const [adhocTasks, setAdhocTasks] = useState<AdhocTask[]>([]);
   const [upcoming, setUpcoming] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<string | null>(null);
@@ -34,7 +46,7 @@ export default function ResourceDashboardPage() {
 
   useEffect(() => {
     if (userId) fetchTasks();
-  }, [userId]);
+  }, [userId, dateFilter]);
 
   async function fetchTasks() {
     setLoading(true);
@@ -44,14 +56,21 @@ export default function ResourceDashboardPage() {
       weekLater.setDate(weekLater.getDate() + 7);
 
       const params = new URLSearchParams({ assignedTo: userId });
-      if (dateFilter) params.set("month", String(new Date(dateFilter).getMonth() + 1));
-      if (dateFilter) params.set("year", String(new Date(dateFilter).getFullYear()));
+      if (dateFilter) {
+        params.set("month", String(new Date(dateFilter).getMonth() + 1));
+        params.set("year", String(new Date(dateFilter).getFullYear()));
+      }
 
-      const res = await fetch(`/api/calendar?${params}`);
-      const data = await res.json();
-      const allTasks: CalendarEntry[] = Array.isArray(data) ? data : data.data || [];
+      const [calRes, adhocRes] = await Promise.all([
+        fetch(`/api/calendar?${params}`),
+        fetch(`/api/tasks?assignedTo=${userId}`),
+      ]);
+      const calData = await calRes.json();
+      const adhocData = await adhocRes.json();
+      const allTasks: CalendarEntry[] = Array.isArray(calData) ? calData : calData.data || [];
 
       setTasks(allTasks);
+      setAdhocTasks(Array.isArray(adhocData) ? adhocData : adhocData.data || []);
       setUpcoming(
         allTasks.filter((t) => {
           const d = new Date(t.postingDate);
@@ -149,11 +168,49 @@ export default function ResourceDashboardPage() {
         </div>
       )}
 
+      {adhocTasks.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-indigo-600" />
+              <h2 className="text-lg font-semibold text-gray-900">My Adhoc Tasks</h2>
+            </div>
+            <span className="text-sm text-gray-500">{adhocTasks.length} tasks</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-left text-gray-500">
+                  <th className="px-5 py-3 font-medium">Title</th>
+                  <th className="px-5 py-3 font-medium">Client</th>
+                  <th className="px-5 py-3 font-medium">Deadline</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {adhocTasks.map((t) => (
+                  <tr key={t.id} className="hover:bg-gray-50">
+                    <td className="px-5 py-3 font-medium text-gray-900">{t.title}</td>
+                    <td className="px-5 py-3 text-gray-600">{t.client?.name || "-"}</td>
+                    <td className="px-5 py-3 text-gray-600">{t.deadline ? formatDate(new Date(t.deadline)) : "-"}</td>
+                    <td className="px-5 py-3">
+                      <Badge variant={t.status === "COMPLETED" ? "success" : t.status === "IN_PROGRESS" ? "info" : t.status === "NEW" ? "warning" : "default"}>
+                        {t.status.replace(/_/g, " ")}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-gray-900">My Tasks</h2>
+            <h2 className="text-lg font-semibold text-gray-900">My Calendar Tasks</h2>
           </div>
           <span className="text-sm text-gray-500">{tasks.length} entries</span>
         </div>
@@ -203,7 +260,7 @@ export default function ResourceDashboardPage() {
                               Complete
                             </Button>
                           )}
-                          {entry.status === "POSTED" && (
+                          {entry.status === "POSTED" && isAdmin && (
                             <Button size="sm" variant="outline" onClick={() => openReachModal(entry)}>
                               <BarChart3 className="h-4 w-4 mr-1" />
                               Reach
