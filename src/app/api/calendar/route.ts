@@ -12,12 +12,14 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const clientId = searchParams.get("clientId");
+    const assignedTo = searchParams.get("assignedTo");
     const month = searchParams.get("month");
     const year = searchParams.get("year");
 
     const where: Record<string, unknown> = {};
 
     if (clientId) where.clientId = clientId;
+    if (assignedTo) where.assignedTo = assignedTo;
 
     if (month && year) {
       const m = parseInt(month);

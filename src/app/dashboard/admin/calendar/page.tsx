@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 const POST_TYPES = ["POSTER", "REEL", "VIDEO", "GIF", "CAROUSEL", "STORY", "STATIC"];
@@ -85,6 +85,10 @@ export default function CalendarPage() {
   const [form, setForm] = useState<CalendarForm>(defaultForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [reachModalOpen, setReachModalOpen] = useState(false);
+  const [reachEntry, setReachEntry] = useState<CalendarEntry | null>(null);
+  const [reachForm, setReachForm] = useState<Record<string, string>>({});
+  const [savingReach, setSavingReach] = useState(false);
 
   useEffect(() => {
     fetchEntries();
@@ -253,6 +257,34 @@ export default function CalendarPage() {
     } catch (error) {
       setError("Network error");
       console.error("Failed to update status:", error);
+    }
+  }
+
+  function openReachModal(entry: CalendarEntry) {
+    setReachEntry(entry);
+    setReachForm({});
+    setReachModalOpen(true);
+  }
+
+  async function handleSaveReach() {
+    if (!reachEntry) return;
+    setSavingReach(true);
+    try {
+      const body: Record<string, any> = { calendarEntryId: reachEntry.id };
+      PLATFORMS.forEach((p) => {
+        const key = p.toLowerCase() + "Reach";
+        body[key] = reachForm[p] ? parseInt(reachForm[p]) : 0;
+      });
+      await fetch("/api/performance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      setReachModalOpen(false);
+    } catch (error) {
+      console.error("Failed to save reach:", error);
+    } finally {
+      setSavingReach(false);
     }
   }
 
@@ -430,9 +462,16 @@ export default function CalendarPage() {
                       </td>
                       <td className="px-4 py-3 text-lg">{sla.color}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" onClick={() => openEditModal(entry)}>
-                          <span className="text-gray-400">...</span>
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {entry.status === "POSTED" && (
+                            <Button size="sm" variant="outline" onClick={() => openReachModal(entry)}>
+                              <BarChart3 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => openEditModal(entry)}>
+                            <span className="text-gray-400">...</span>
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -462,6 +501,19 @@ export default function CalendarPage() {
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="secondary" onClick={() => { setEditModalOpen(false); setEditingEntry(null); }}>Cancel</Button>
           <Button onClick={handleUpdate} isLoading={saving}>Update Entry</Button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={reachModalOpen} onClose={() => setReachModalOpen(false)} title={`Post Reach - ${reachEntry?.title || ""}`} size="md">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">Enter the reach for each platform:</p>
+          {PLATFORMS.map((p) => (
+            <Input key={p} label={`${p} Reach`} type="number" value={reachForm[p] || ""} onChange={(e) => setReachForm({ ...reachForm, [p]: e.target.value })} placeholder="0" />
+          ))}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setReachModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveReach} isLoading={savingReach}>Save Reach</Button>
+          </div>
         </div>
       </Modal>
     </div>
