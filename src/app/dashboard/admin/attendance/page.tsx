@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { Search, Users, UserCheck, UserX, Clock } from "lucide-react";
 
@@ -24,15 +25,30 @@ export default function AttendancePage() {
   const [endDate, setEndDate] = useState(now.toISOString().split("T")[0]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+  const [resourceFilter, setResourceFilter] = useState("");
 
   useEffect(() => {
     fetchAttendance();
-  }, [startDate, endDate]);
+    fetchUsers();
+  }, [startDate, endDate, resourceFilter]);
+
+  async function fetchUsers() {
+    try {
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      const usersData = Array.isArray(data) ? data : data.data || [];
+      setUsers(usersData.filter((u: any) => u.isActive));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+    }
+  }
 
   async function fetchAttendance() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ startDate, endDate });
+      if (resourceFilter) params.set("userId", resourceFilter);
       const res = await fetch(`/api/attendance?${params}`);
       const data = await res.json();
       setRecords(Array.isArray(data) ? data : data.data || []);
@@ -105,6 +121,17 @@ export default function AttendancePage() {
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />
+        <div className="w-56">
+          <Select
+            label="Resource"
+            options={[
+              { value: "", label: "All Resources" },
+              ...users.map((u) => ({ value: u.id, label: u.name })),
+            ]}
+            value={resourceFilter}
+            onChange={(e) => setResourceFilter(e.target.value)}
+          />
+        </div>
         <div className="pt-6">
           <Button onClick={fetchAttendance}>Refresh</Button>
         </div>
