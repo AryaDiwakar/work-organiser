@@ -12,7 +12,6 @@ export async function GET() {
 
     const clients = await prisma.client.findMany({
       where: { isActive: true },
-      include: { categories: true },
       orderBy: { createdAt: "desc" },
     });
 
