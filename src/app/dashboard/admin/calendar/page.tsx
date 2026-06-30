@@ -279,7 +279,7 @@ export default function CalendarPage() {
     else { setMonth(month + 1); }
   }
 
-  const CalendarFormFields = () => (
+  const calendarFormFields = (
     <div className="space-y-4">
       <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Enter post title" />
       <div className="grid grid-cols-2 gap-4">
@@ -455,7 +455,7 @@ export default function CalendarPage() {
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Add Calendar Entry" size="lg">
-        <CalendarFormFields />
+        {calendarFormFields}
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
           <Button onClick={handleSave} isLoading={saving}>Create Entry</Button>
@@ -463,7 +463,7 @@ export default function CalendarPage() {
       </Modal>
 
       <Modal isOpen={editModalOpen} onClose={() => { setEditModalOpen(false); setEditingEntry(null); }} title="Edit Calendar Entry" size="lg">
-        <CalendarFormFields />
+        {calendarFormFields}
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="secondary" onClick={() => { setEditModalOpen(false); setEditingEntry(null); }}>Cancel</Button>
           <Button onClick={handleUpdate} isLoading={saving}>Update Entry</Button>
