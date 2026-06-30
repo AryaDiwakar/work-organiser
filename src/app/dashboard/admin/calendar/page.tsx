@@ -242,13 +242,20 @@ export default function CalendarPage() {
 
   async function handleStatusChange(entryId: string, newStatus: string) {
     try {
+      setError("");
       const res = await fetch(`/api/calendar/${entryId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) fetchEntries();
+      if (res.ok) {
+        fetchEntries();
+      } else {
+        const errData = await res.json();
+        setError(errData.error || "Failed to update status");
+      }
     } catch (error) {
+      setError("Network error");
       console.error("Failed to update status:", error);
     }
   }
@@ -360,6 +367,8 @@ export default function CalendarPage() {
           />
         </div>
       </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
