@@ -390,7 +390,7 @@ export default function ClientDetailPage() {
           {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
           <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Enter post title" />
           <div className="grid grid-cols-2 gap-4">
-            <Select label="Category" options={categories.map((c: any) => ({ value: c.id, label: c.name }))} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} />
+            <Select label="Category" placeholder="Select a category" options={categories.map((c: any) => ({ value: c.id, label: c.name }))} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} />
             <Select label="Type of Post" options={POST_TYPES.map((t) => ({ value: t, label: t.charAt(0) + t.slice(1).toLowerCase() }))} value={form.postType} onChange={(e) => setForm({ ...form, postType: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
