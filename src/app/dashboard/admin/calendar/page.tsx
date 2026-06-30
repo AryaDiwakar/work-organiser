@@ -277,7 +277,7 @@ export default function CalendarPage() {
       <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Enter post title" />
       <div className="grid grid-cols-2 gap-4">
         <Select label="Client" options={clients.map((c) => ({ value: c.id, label: c.name }))} value={form.clientId} onChange={(e) => { setForm({ ...form, clientId: e.target.value, categoryId: "" }); }} />
-        <Select label="Category" options={categories.map((c: any) => ({ value: c.id, label: c.name }))} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} />
+        <Select label="Category" placeholder="Select a category" options={categories.map((c: any) => ({ value: c.id, label: c.name }))} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Select label="Type of Post" options={POST_TYPES.map((t) => ({ value: t, label: t.charAt(0) + t.slice(1).toLowerCase() }))} value={form.postType} onChange={(e) => setForm({ ...form, postType: e.target.value })} />
