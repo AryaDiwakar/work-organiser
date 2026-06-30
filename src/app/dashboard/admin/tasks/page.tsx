@@ -42,9 +42,10 @@ export default function TasksPage() {
   const isAdmin = isAdminRole(session?.user?.role as string);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
-  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string; role: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [clientFilter, setClientFilter] = useState("");
+  const [resourceFilter, setResourceFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -56,12 +57,13 @@ export default function TasksPage() {
     fetchTasks();
     fetchClients();
     fetchUsers();
-  }, [clientFilter, startDate, endDate]);
+  }, [clientFilter, resourceFilter, startDate, endDate]);
 
   async function fetchTasks() {
     try {
       const params = new URLSearchParams();
       if (clientFilter) params.set("clientId", clientFilter);
+      if (resourceFilter) params.set("assignedTo", resourceFilter);
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
       const res = await fetch(`/api/tasks?${params}`);
@@ -178,6 +180,16 @@ export default function TasksPage() {
             ]}
             value={clientFilter}
             onChange={(e) => setClientFilter(e.target.value)}
+          />
+        </div>
+        <div className="w-56">
+          <Select
+            options={[
+              { value: "", label: "All Resources" },
+              ...users.filter((u: any) => u.role !== "SUPER_ADMIN").map((u) => ({ value: u.id, label: u.name })),
+            ]}
+            value={resourceFilter}
+            onChange={(e) => setResourceFilter(e.target.value)}
           />
         </div>
         <div className="w-44">
