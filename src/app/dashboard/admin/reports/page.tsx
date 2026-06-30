@@ -1,11 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { getStatusLabel, formatDate } from "@/lib/utils";
+import { useSession } from "next-auth/react";
+import { getStatusLabel, formatDate, formatTime } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { FileText, BarChart3, Download } from "lucide-react";
+import { FileText, Users, BarChart3, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -13,16 +14,28 @@ import {
 } from "recharts";
 
 const PIE_COLORS = ["#6366f1", "#22c55e", "#eab308", "#ef4444", "#3b82f6", "#ec4899"];
+type ReportTab = "client" | "attendance";
 
 export default function ReportsPage() {
+  const { data: session } = useSession();
+  const role = (session?.user as any)?.role;
+  const isSuperAdmin = role === "SUPER_ADMIN";
   const now = new Date();
+  const [activeTab, setActiveTab] = useState<ReportTab>("client");
 
+  // Client report state
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [clientId, setClientId] = useState("");
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  // Attendance report state
+  const [attMonth, setAttMonth] = useState(String(now.getMonth() + 1));
+  const [attYear, setAttYear] = useState(String(now.getFullYear()));
+  const [attReport, setAttReport] = useState<any>(null);
+  const [attLoading, setAttLoading] = useState(false);
 
   useEffect(() => {
     fetchClients();
@@ -53,7 +66,21 @@ export default function ReportsPage() {
     }
   }
 
-  function downloadExcel() {
+  async function generateAttendanceReport() {
+    setAttLoading(true);
+    try {
+      const params = new URLSearchParams({ month: attMonth, year: attYear });
+      const res = await fetch(`/api/attendance/summary?${params}`);
+      const data = await res.json();
+      setAttReport(data);
+    } catch (error) {
+      console.error("Failed to generate attendance report:", error);
+    } finally {
+      setAttLoading(false);
+    }
+  }
+
+  function downloadClientExcel() {
     if (!report) return;
     const statusRows = (report.statusDistribution || []).map((s: any) => ({
       "Status": getStatusLabel(s.status),
@@ -74,7 +101,37 @@ export default function ReportsPage() {
     XLSX.utils.book_append_sheet(wb, ws1, "Status");
     XLSX.utils.book_append_sheet(wb, ws2, "Platform");
     XLSX.utils.book_append_sheet(wb, ws3, "Category");
-    XLSX.writeFile(wb, `client_report_${clientId}_${month}_${year}.xlsx`);
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `client_report_${clientId}_${month}_${year}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadAttendanceExcel() {
+    if (!attReport) return;
+    const summaryRows = (attReport.summary || []).map((s: any) => ({
+      "Resource": s.name,
+      "Present": s.presentDays,
+      "Absent": s.absentDays,
+      "Leaves": s.leaveDays,
+      "Total Hours": s.totalHours,
+      "Permission Hours": s.permissionHours,
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, "Attendance");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `attendance_report_${attMonth}_${attYear}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
@@ -86,16 +143,45 @@ export default function ReportsPage() {
     return { value: String(y), label: String(y) };
   });
 
+  const tabs = [
+    { key: "client" as ReportTab, label: "Client Work Report", icon: BarChart3 },
+    ...(isSuperAdmin ? [{ key: "attendance" as ReportTab, label: "Attendance Report", icon: Users }] : []),
+  ];
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Client Work Report</h1>
-        <p className="text-gray-500 mt-1">Generate client-wise performance report</p>
+        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+        <p className="text-gray-500 mt-1">Generate client-wise and resource-wise reports</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="space-y-6">
-          <div className="flex items-end gap-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="border-b border-gray-200">
+          <div className="flex">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === tab.key
+                      ? "border-indigo-600 text-indigo-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="p-5">
+          {activeTab === "client" && (
+            <div className="space-y-6">
+              <div className="flex items-end gap-4">
                 <div className="w-64">
                   <Select label="Client" options={clients.map((c) => ({ value: c.id, label: c.name }))} value={clientId} onChange={(e) => setClientId(e.target.value)} />
                 </div>
@@ -107,7 +193,7 @@ export default function ReportsPage() {
                 </div>
                 <Button onClick={generateClientReport} isLoading={loading}>Generate Report</Button>
                 {report && (
-                  <Button variant="outline" onClick={downloadExcel}>
+                  <Button variant="outline" onClick={downloadClientExcel}>
                     <Download className="h-4 w-4 mr-2" />
                     Excel
                   </Button>
@@ -205,8 +291,124 @@ export default function ReportsPage() {
                   <p className="text-gray-400">Select a client and generate report to view data.</p>
                 </div>
               )}
-          </div>
+            </div>
+          )}
+
+          {activeTab === "attendance" && isSuperAdmin && (
+            <div className="space-y-6">
+              <div className="flex items-end gap-4">
+                <div className="w-40">
+                  <Select label="Month" options={monthOptions} value={attMonth} onChange={(e) => setAttMonth(e.target.value)} />
+                </div>
+                <div className="w-32">
+                  <Select label="Year" options={yearOptions} value={attYear} onChange={(e) => setAttYear(e.target.value)} />
+                </div>
+                <Button onClick={generateAttendanceReport} isLoading={attLoading}>Generate Report</Button>
+                {attReport && (
+                  <Button variant="outline" onClick={downloadAttendanceExcel}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                )}
+              </div>
+
+              {attReport ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Total Resources</p>
+                      <p className="text-2xl font-bold text-gray-900">{attReport.summary?.length || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Working Days</p>
+                      <p className="text-2xl font-bold text-gray-900">{attReport.totalDays || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Month</p>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {new Date(parseInt(attYear), parseInt(attMonth) - 1).toLocaleString("default", { month: "long", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200">
+                      <h2 className="text-lg font-semibold text-gray-900">Resource-wise Attendance</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 text-left text-gray-500">
+                            <th className="px-4 py-3 font-medium">Resource</th>
+                            <th className="px-4 py-3 font-medium">Present</th>
+                            <th className="px-4 py-3 font-medium">Absent</th>
+                            <th className="px-4 py-3 font-medium">Leaves</th>
+                            <th className="px-4 py-3 font-medium">Total Hours</th>
+                            <th className="px-4 py-3 font-medium">Permission Hours</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {attReport.summary?.map((s: any) => (
+                            <tr key={s.userId} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
+                              <td className="px-4 py-3">
+                                <Badge variant="success">{s.presentDays}</Badge>
+                              </td>
+                              <td className="px-4 py-3 text-gray-600">{s.absentDays}</td>
+                              <td className="px-4 py-3 text-gray-600">{s.leaveDays}</td>
+                              <td className="px-4 py-3 text-gray-600">{s.totalHours}h</td>
+                              <td className="px-4 py-3 text-gray-600">{s.permissionHours}h</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {attReport.summary?.map((s: any) => s.attendance?.length > 0 && (
+                    <div key={s.userId} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="p-4 border-b border-gray-200">
+                        <h3 className="text-base font-semibold text-gray-900">{s.name} - Daily Log</h3>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-left text-gray-500">
+                              <th className="px-4 py-3 font-medium">Date</th>
+                              <th className="px-4 py-3 font-medium">Login</th>
+                              <th className="px-4 py-3 font-medium">Logout</th>
+                              <th className="px-4 py-3 font-medium">Hours</th>
+                              <th className="px-4 py-3 font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {s.attendance.map((a: any) => (
+                              <tr key={a.date} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-gray-900">{formatDate(a.date)}</td>
+                                <td className="px-4 py-3 text-gray-600">{formatTime(a.loginTime)}</td>
+                                <td className="px-4 py-3 text-gray-600">{formatTime(a.logoutTime)}</td>
+                                <td className="px-4 py-3 text-gray-600">{a.hoursWorked ? `${a.hoursWorked}h` : "-"}</td>
+                                <td className="px-4 py-3">
+                                  <Badge variant={a.status === "present" ? "success" : "danger"}>{a.status}</Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-400">Generate attendance report to view resource data.</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+    </div>
   );
 }

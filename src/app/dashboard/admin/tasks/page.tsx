@@ -160,7 +160,14 @@ export default function TasksPage() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Tasks");
-    XLSX.writeFile(wb, `tasks_${startDate || "all"}_to_${endDate || "all"}.xlsx`);
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tasks_${startDate || "all"}_to_${endDate || "all"}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const getStatusBadgeVariant = (status: string) => {

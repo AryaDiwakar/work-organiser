@@ -3,6 +3,30 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const calendarEntryId = searchParams.get("calendarEntryId");
+
+    if (!calendarEntryId) {
+      return NextResponse.json({ error: "calendarEntryId is required" }, { status: 400 });
+    }
+
+    const performance = await prisma.performanceEntry.findUnique({
+      where: { calendarEntryId },
+    });
+
+    return NextResponse.json(performance);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch performance" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);

@@ -6,27 +6,28 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Seeding database...");
 
-  const adminPassword = await hash("admin123", 12);
-  const resourcePassword = await hash("resource123", 12);
+  const superAdminPassword = await hash("G0d1g1t3ll#2024!SuP3r", 12);
+  const adminPassword = await hash("G0d1g1t3ll#2024!Adm1n", 12);
+  const resourcePassword = await hash("G0d1g1t3ll#2024!Res0urce", 12);
 
   const superAdmin = await prisma.user.upsert({
-    where: { email: "superadmin@workorganiser.com" },
+    where: { email: "superadmin@godigitell.com" },
     update: {},
     create: {
       name: "Super Admin",
-      email: "superadmin@workorganiser.com",
-      password: adminPassword,
+      email: "superadmin@godigitell.com",
+      password: superAdminPassword,
       role: "SUPER_ADMIN",
     },
   });
   console.log("Created super admin:", superAdmin.email);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@workorganiser.com" },
+    where: { email: "admin@godigitell.com" },
     update: {},
     create: {
       name: "Admin User",
-      email: "admin@workorganiser.com",
+      email: "admin@godigitell.com",
       password: adminPassword,
       role: "ADMIN",
     },
@@ -34,11 +35,11 @@ async function main() {
   console.log("Created admin:", admin.email);
 
   const designer = await prisma.user.upsert({
-    where: { email: "designer@workorganiser.com" },
+    where: { email: "designer@godigitell.com" },
     update: {},
     create: {
       name: "Designer Resource",
-      email: "designer@workorganiser.com",
+      email: "designer@godigitell.com",
       password: resourcePassword,
       role: "RESOURCE",
     },
@@ -46,11 +47,11 @@ async function main() {
   console.log("Created designer:", designer.email);
 
   const contentWriter = await prisma.user.upsert({
-    where: { email: "content@workorganiser.com" },
+    where: { email: "content@godigitell.com" },
     update: {},
     create: {
       name: "Content Writer",
-      email: "content@workorganiser.com",
+      email: "content@godigitell.com",
       password: resourcePassword,
       role: "RESOURCE",
     },
@@ -92,10 +93,10 @@ async function main() {
 
   console.log("\n✅ Seed completed successfully!");
   console.log("\nLogin Credentials:");
-  console.log("  Super Admin: superadmin@workorganiser.com / admin123");
-  console.log("  Admin:        admin@workorganiser.com / admin123");
-  console.log("  Designer:     designer@workorganiser.com / resource123");
-  console.log("  Content:      content@workorganiser.com / resource123");
+  console.log("  Super Admin: superadmin@godigitell.com / G0d1g1t3ll#2024!SuP3r");
+  console.log("  Admin:        admin@godigitell.com / G0d1g1t3ll#2024!Adm1n");
+  console.log("  Designer:     designer@godigitell.com / G0d1g1t3ll#2024!Res0urce");
+  console.log("  Content:      content@godigitell.com / G0d1g1t3ll#2024!Res0urce");
 }
 
 main()

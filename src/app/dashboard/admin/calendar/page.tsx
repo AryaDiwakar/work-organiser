@@ -266,28 +266,53 @@ export default function CalendarPage() {
     }
   }
 
-  function openReachModal(entry: CalendarEntry) {
+  async function openReachModal(entry: CalendarEntry) {
     setReachEntry(entry);
     setReachForm({});
     setReachModalOpen(true);
+    try {
+      const res = await fetch(`/api/performance?calendarEntryId=${entry.id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.id) {
+        setReachForm({
+          Linkedin: String(data.linkedinReach ?? ""),
+          Facebook: String(data.facebookReach ?? ""),
+          Instagram: String(data.instagramReach ?? ""),
+          Youtube: String(data.youtubeReach ?? ""),
+          Google: String(data.googleReach ?? ""),
+          Twitter: String(data.twitterReach ?? ""),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch reach:", error);
+    }
   }
 
   async function handleSaveReach() {
     if (!reachEntry) return;
     setSavingReach(true);
+    setError("");
     try {
       const body: Record<string, any> = { calendarEntryId: reachEntry.id };
       PLATFORMS.forEach((p) => {
         const key = p.toLowerCase() + "Reach";
-        body[key] = reachForm[p] ? parseInt(reachForm[p]) : 0;
+        const val = reachForm[p]?.trim();
+        body[key] = val ? parseInt(val, 10) : 0;
       });
-      await fetch("/api/performance", {
+      const res = await fetch("/api/performance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const errData = await res.json();
+        setError(errData.error || "Failed to save reach");
+        return;
+      }
       setReachModalOpen(false);
     } catch (error) {
+      setError("Network error");
       console.error("Failed to save reach:", error);
     } finally {
       setSavingReach(false);
@@ -309,7 +334,14 @@ export default function CalendarPage() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Calendar");
-    XLSX.writeFile(wb, `calendar_${startDate || "all"}_to_${endDate || "all"}.xlsx`);
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `calendar_${startDate || "all"}_to_${endDate || "all"}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function togglePlatform(platform: string) {

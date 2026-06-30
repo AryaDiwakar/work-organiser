@@ -99,10 +99,27 @@ export default function ResourceDashboardPage() {
     }
   }
 
-  function openReachModal(entry: CalendarEntry) {
+  async function openReachModal(entry: CalendarEntry) {
     setSelectedEntry(entry);
     setReachForm({});
     setReachModalOpen(true);
+    try {
+      const res = await fetch(`/api/performance?calendarEntryId=${entry.id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.id) {
+        setReachForm({
+          Linkedin: String(data.linkedinReach ?? ""),
+          Facebook: String(data.facebookReach ?? ""),
+          Instagram: String(data.instagramReach ?? ""),
+          Youtube: String(data.youtubeReach ?? ""),
+          Google: String(data.googleReach ?? ""),
+          Twitter: String(data.twitterReach ?? ""),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch reach:", error);
+    }
   }
 
   async function handleSaveReach() {
@@ -112,13 +129,19 @@ export default function ResourceDashboardPage() {
       const body: Record<string, any> = { calendarEntryId: selectedEntry.id };
       PLATFORMS.forEach((p) => {
         const key = p.toLowerCase() + "Reach";
-        body[key] = reachForm[p] ? parseInt(reachForm[p]) : 0;
+        const val = reachForm[p]?.trim();
+        body[key] = val ? parseInt(val, 10) : 0;
       });
-      await fetch("/api/performance", {
+      const res = await fetch("/api/performance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const errData = await res.json();
+        console.error("Failed to save reach:", errData.error);
+        return;
+      }
       setReachModalOpen(false);
     } catch (error) {
       console.error("Failed to save reach:", error);
