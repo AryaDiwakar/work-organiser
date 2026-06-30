@@ -49,6 +49,7 @@ export default function ClientDetailPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<CalendarForm>(defaultForm);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (id) { fetchAll(); fetchUsers(); fetchCategories(); }
@@ -79,6 +80,7 @@ export default function ClientDetailPage() {
       setReport(reportData);
     } catch (error) {
       console.error("Failed to fetch client data:", error);
+      setError("Failed to load client data");
     } finally {
       setLoading(false);
     }
@@ -112,8 +114,12 @@ export default function ClientDetailPage() {
   }
 
   async function handleSave() {
-    if (!form.title.trim() || !form.categoryId || !form.postingDate) return;
+    if (!form.title.trim() || !form.categoryId || !form.postingDate) {
+      setError("Title, Category, and Posting Date are required");
+      return;
+    }
     setSaving(true);
+    setError("");
     try {
       const body = {
         ...form,
@@ -129,8 +135,12 @@ export default function ClientDetailPage() {
       if (res.ok) {
         setModalOpen(false);
         fetchAll();
+      } else {
+        const errData = await res.json();
+        setError(errData.error || "Failed to create entry");
       }
     } catch (error) {
+      setError("Network error - please try again");
       console.error("Failed to create entry:", error);
     } finally {
       setSaving(false);
@@ -154,8 +164,8 @@ export default function ClientDetailPage() {
     );
   }
 
-  if (!client) {
-    return <p className="text-gray-400 text-center py-12">Client not found.</p>;
+  if (!client && !loading) {
+    return <p className="text-red-500 text-center py-12">{error || "Client not found."}</p>;
   }
 
   const statusCounts = calendarEntries.reduce((acc: Record<string, number>, entry: any) => {
@@ -377,6 +387,7 @@ export default function ClientDetailPage() {
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Add Calendar Entry" size="lg">
         <div className="space-y-4">
           <p className="text-sm text-indigo-600 font-medium">Client: {client.name}</p>
+          {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
           <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Enter post title" />
           <div className="grid grid-cols-2 gap-4">
             <Select label="Category" options={categories.map((c: any) => ({ value: c.id, label: c.name }))} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} />
