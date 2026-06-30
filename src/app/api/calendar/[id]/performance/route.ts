@@ -11,28 +11,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const existing = await prisma.calendarEntry.findUnique({
-      where: { id: id },
-    });
-
+    const existing = await prisma.calendarEntry.findUnique({ where: { id: id } });
     if (!existing) {
       return NextResponse.json({ error: "Calendar entry not found" }, { status: 404 });
     }
 
-    const { reach, engagement, likes, comments, shares, saves } = await req.json();
+    const { linkedinReach, facebookReach, instagramReach, youtubeReach, googleReach, twitterReach, engagement } = await req.json();
+
+    const totalReach = (linkedinReach || 0) + (facebookReach || 0) + (instagramReach || 0) +
+      (youtubeReach || 0) + (googleReach || 0) + (twitterReach || 0);
 
     const performance = await prisma.performanceEntry.upsert({
       where: { calendarEntryId: id },
-      update: { reach, engagement, likes, comments, shares, saves },
-      create: {
-        calendarEntryId: id,
-        reach,
-        engagement,
-        likes,
-        comments,
-        shares,
-        saves,
-      },
+      update: { linkedinReach, facebookReach, instagramReach, youtubeReach, googleReach, twitterReach, totalReach, engagement },
+      create: { calendarEntryId: id, linkedinReach, facebookReach, instagramReach, youtubeReach, googleReach, twitterReach, totalReach, engagement },
     });
 
     return NextResponse.json(performance, { status: 201 });

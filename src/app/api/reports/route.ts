@@ -63,14 +63,12 @@ export async function GET(req: Request) {
     const totalEngagement = posts.reduce(
       (acc, post) => {
         if (post.performance) {
-          acc.reach += post.performance.reach || 0;
-          acc.likes += post.performance.likes || 0;
-          acc.comments += post.performance.comments || 0;
-          acc.shares += post.performance.shares || 0;
+          acc.totalReach += post.performance.totalReach || 0;
+          acc.engagement += post.performance.engagement || 0;
         }
         return acc;
       },
-      { reach: 0, likes: 0, comments: 0, shares: 0 }
+      { totalReach: 0, engagement: 0 }
     );
 
     return NextResponse.json({
@@ -91,7 +89,7 @@ export async function GET(req: Request) {
         categoryName: data.name,
         count: data.count,
       })),
-      engagement: totalEngagement,
+      engagement: { reach: totalEngagement.totalReach, engagement: totalEngagement.engagement },
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {

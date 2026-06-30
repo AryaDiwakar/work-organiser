@@ -157,6 +157,7 @@ export default function ReportsPage() {
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
                       <p className="text-sm text-gray-500">Total Engagement</p>
                       <p className="text-2xl font-bold text-indigo-600">{report.engagement?.reach || 0}</p>
+                      <p className="text-xs text-gray-400">Total Reach</p>
                     </div>
                   </div>
 

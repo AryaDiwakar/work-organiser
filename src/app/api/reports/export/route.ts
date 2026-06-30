@@ -70,16 +70,15 @@ export async function POST(req: Request) {
     const totalEngagement = posts.reduce(
       (acc, post) => {
         if (post.performance) {
-          acc.reach += post.performance.reach || 0;
+          acc.totalReach += post.performance.totalReach || 0;
           acc.engagement += post.performance.engagement || 0;
-          acc.likes += post.performance.likes || 0;
-          acc.comments += post.performance.comments || 0;
-          acc.shares += post.performance.shares || 0;
-          acc.saves += post.performance.saves || 0;
+          acc.linkedinReach += post.performance.linkedinReach || 0;
+          acc.facebookReach += post.performance.facebookReach || 0;
+          acc.instagramReach += post.performance.instagramReach || 0;
         }
         return acc;
       },
-      { reach: 0, engagement: 0, likes: 0, comments: 0, shares: 0, saves: 0 }
+      { totalReach: 0, engagement: 0, linkedinReach: 0, facebookReach: 0, instagramReach: 0 }
     );
 
     const report = {
