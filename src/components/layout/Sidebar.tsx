@@ -40,7 +40,12 @@ export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = (session?.user as any)?.role;
-  const links = role === "SUPER_ADMIN" || role === "ADMIN" ? adminLinks : resourceLinks;
+  const isSuperAdmin = role === "SUPER_ADMIN";
+  const isAdminView = role === "SUPER_ADMIN" || role === "ADMIN";
+
+  const links = isAdminView
+    ? (isSuperAdmin ? adminLinks : adminLinks.filter((l) => l.label !== "Leaves" && l.label !== "Attendance"))
+    : resourceLinks;
 
   return (
     <div className="flex h-full w-64 flex-col bg-gray-900 text-white">

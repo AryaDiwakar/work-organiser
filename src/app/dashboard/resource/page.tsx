@@ -3,8 +3,12 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { formatDate, getStatusLabel, getStatusColor, getSLAStatus } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Calendar, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3 } from "lucide-react";
+
+const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 
 interface CalendarEntry {
   id: string;
@@ -22,6 +26,11 @@ export default function ResourceDashboardPage() {
   const [upcoming, setUpcoming] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState("");
+  const [reachModalOpen, setReachModalOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
+  const [reachForm, setReachForm] = useState<Record<string, string>>({});
+  const [savingReach, setSavingReach] = useState(false);
 
   useEffect(() => {
     if (userId) fetchTasks();
@@ -33,12 +42,14 @@ export default function ResourceDashboardPage() {
       const now = new Date();
       const weekLater = new Date(now);
       weekLater.setDate(weekLater.getDate() + 7);
-      const [tasksRes, upcomingRes] = await Promise.all([
-        fetch(`/api/calendar?assignedTo=${userId}`),
-        fetch(`/api/calendar?assignedTo=${userId}`),
-      ]);
-      const tasksData = await tasksRes.json();
-      const allTasks: CalendarEntry[] = Array.isArray(tasksData) ? tasksData : tasksData.data || [];
+
+      const params = new URLSearchParams({ assignedTo: userId });
+      if (dateFilter) params.set("month", String(new Date(dateFilter).getMonth() + 1));
+      if (dateFilter) params.set("year", String(new Date(dateFilter).getFullYear()));
+
+      const res = await fetch(`/api/calendar?${params}`);
+      const data = await res.json();
+      const allTasks: CalendarEntry[] = Array.isArray(data) ? data : data.data || [];
 
       setTasks(allTasks);
       setUpcoming(
@@ -66,6 +77,34 @@ export default function ResourceDashboardPage() {
     }
   }
 
+  function openReachModal(entry: CalendarEntry) {
+    setSelectedEntry(entry);
+    setReachForm({});
+    setReachModalOpen(true);
+  }
+
+  async function handleSaveReach() {
+    if (!selectedEntry) return;
+    setSavingReach(true);
+    try {
+      const body: Record<string, any> = { calendarEntryId: selectedEntry.id };
+      PLATFORMS.forEach((p) => {
+        const key = p.toLowerCase() + "Reach";
+        body[key] = reachForm[p] ? parseInt(reachForm[p]) : 0;
+      });
+      await fetch("/api/performance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      setReachModalOpen(false);
+    } catch (error) {
+      console.error("Failed to save reach:", error);
+    } finally {
+      setSavingReach(false);
+    }
+  }
+
   function canMarkComplete(status: string) {
     return !["POSTED", "APPROVED", "SCHEDULED"].includes(status);
   }
@@ -80,11 +119,14 @@ export default function ResourceDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, {session?.user?.name || "Resource"}
-        </h1>
-        <p className="text-gray-500 mt-1">Here are your assigned tasks and upcoming deadlines.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Welcome back, {session?.user?.name || "Resource"}
+          </h1>
+          <p className="text-gray-500 mt-1">Your assigned tasks and upcoming deadlines.</p>
+        </div>
+        <Input type="month" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-48" />
       </div>
 
       {upcoming.length > 0 && (
@@ -98,9 +140,7 @@ export default function ResourceDashboardPage() {
               <div key={t.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-amber-100">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{t.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {t.client?.name || "-"} &middot; {formatDate(new Date(t.postingDate))}
-                  </p>
+                  <p className="text-xs text-gray-500">{t.client?.name || "-"} &middot; {formatDate(new Date(t.postingDate))}</p>
                 </div>
                 <Badge variant="warning">{getStatusLabel(t.status)}</Badge>
               </div>
@@ -125,7 +165,7 @@ export default function ResourceDashboardPage() {
                 <th className="px-5 py-3 font-medium">Client</th>
                 <th className="px-5 py-3 font-medium">Posting Date</th>
                 <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">SLA Status</th>
+                <th className="px-5 py-3 font-medium">SLA</th>
                 <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -146,19 +186,30 @@ export default function ResourceDashboardPage() {
                           {getStatusLabel(entry.status)}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-lg">{sla.color}</td>
                       <td className="px-5 py-3">
-                        {canMarkComplete(entry.status) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            isLoading={completing === entry.id}
-                            onClick={() => handleMarkComplete(entry.id)}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Mark Complete
-                          </Button>
-                        )}
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                          sla.color === "🔴" ? "bg-red-100 text-red-700" :
+                          sla.color === "🟡" ? "bg-yellow-100 text-yellow-700" :
+                          "bg-green-100 text-green-700"
+                        }`}>
+                          {sla.color} {sla.label}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          {canMarkComplete(entry.status) && (
+                            <Button size="sm" variant="outline" isLoading={completing === entry.id} onClick={() => handleMarkComplete(entry.id)}>
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Complete
+                            </Button>
+                          )}
+                          {entry.status === "POSTED" && (
+                            <Button size="sm" variant="outline" onClick={() => openReachModal(entry)}>
+                              <BarChart3 className="h-4 w-4 mr-1" />
+                              Reach
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -175,6 +226,19 @@ export default function ResourceDashboardPage() {
           </table>
         </div>
       </div>
+
+      <Modal isOpen={reachModalOpen} onClose={() => setReachModalOpen(false)} title={`Post Reach - ${selectedEntry?.title || ""}`} size="md">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">Enter the reach for each platform:</p>
+          {PLATFORMS.map((p) => (
+            <Input key={p} label={`${p} Reach`} type="number" value={reachForm[p] || ""} onChange={(e) => setReachForm({ ...reachForm, [p]: e.target.value })} placeholder="0" />
+          ))}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setReachModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveReach} isLoading={savingReach}>Save Reach</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

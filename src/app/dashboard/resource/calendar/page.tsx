@@ -114,7 +114,15 @@ export default function ResourceCalendarPage() {
                           {getStatusLabel(entry.status)}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-lg">{sla.color}</td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                          sla.color === "🔴" ? "bg-red-100 text-red-700" :
+                          sla.color === "🟡" ? "bg-yellow-100 text-yellow-700" :
+                          "bg-green-100 text-green-700"
+                        }`}>
+                          {sla.color} {sla.label}
+                        </span>
+                      </td>
                     </tr>
                   );
                 })

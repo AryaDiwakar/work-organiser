@@ -3,10 +3,37 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { formatDate, formatDateTime, getStatusLabel, getStatusColor } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Calendar, ClipboardList, BarChart3 } from "lucide-react";
+import { Calendar, ClipboardList, BarChart3, Plus } from "lucide-react";
+
+const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
+const POST_TYPES = ["POSTER", "REEL", "VIDEO", "GIF", "CAROUSEL", "STORY", "STATIC"];
 
 type Tab = "calendar" | "tasks" | "reports";
+
+interface CalendarForm {
+  title: string;
+  categoryId: string;
+  postType: string;
+  platforms: string[];
+  creativeBrief: string;
+  caption: string;
+  hashtags: string;
+  designDirection: string;
+  referenceLinks: string;
+  postingDate: string;
+  postingTime: string;
+  assignedTo: string;
+}
+
+const defaultForm: CalendarForm = {
+  title: "", categoryId: "", postType: "POSTER", platforms: [],
+  creativeBrief: "", caption: "", hashtags: "", designDirection: "",
+  referenceLinks: "", postingDate: "", postingTime: "", assignedTo: "",
+};
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -17,9 +44,14 @@ export default function ClientDetailPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState<CalendarForm>(defaultForm);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (id) fetchAll();
+    if (id) { fetchAll(); fetchUsers(); fetchCategories(); }
   }, [id]);
 
   async function fetchAll() {
@@ -50,6 +82,68 @@ export default function ClientDetailPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchUsers() {
+    try {
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      const usersData = Array.isArray(data) ? data : data.data || [];
+      setUsers(usersData.filter((u: any) => u.isActive));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+    }
+  }
+
+  async function fetchCategories() {
+    try {
+      const res = await fetch("/api/categories");
+      const data = await res.json();
+      setCategories(Array.isArray(data) ? data : data.data || []);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    }
+  }
+
+  function openAddModal() {
+    const now = new Date().toISOString().split("T")[0];
+    setForm({ ...defaultForm, postingDate: now });
+    setModalOpen(true);
+  }
+
+  async function handleSave() {
+    if (!form.title.trim() || !form.categoryId || !form.postingDate) return;
+    setSaving(true);
+    try {
+      const body = {
+        ...form,
+        clientId: id,
+        hashtags: form.hashtags.split(",").map((h) => h.trim()).filter(Boolean),
+        referenceLinks: form.referenceLinks.split("\n").map((r) => r.trim()).filter(Boolean),
+      };
+      const res = await fetch("/api/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setModalOpen(false);
+        fetchAll();
+      }
+    } catch (error) {
+      console.error("Failed to create entry:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function togglePlatform(platform: string) {
+    setForm((prev) => ({
+      ...prev,
+      platforms: prev.platforms.includes(platform)
+        ? prev.platforms.filter((p) => p !== platform)
+        : [...prev.platforms, platform],
+    }));
   }
 
   if (loading) {
@@ -140,24 +234,32 @@ export default function ClientDetailPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="border-b border-gray-200">
-          <div className="flex">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab.key
-                      ? "border-indigo-600 text-indigo-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
+          <div className="flex items-center justify-between pr-4">
+            <div className="flex">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === tab.key
+                        ? "border-indigo-600 text-indigo-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            {activeTab === "calendar" && (
+              <Button size="sm" onClick={openAddModal}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Entry
+              </Button>
+            )}
           </div>
         </div>
 
@@ -218,11 +320,7 @@ export default function ClientDetailPage() {
                         <td className="px-4 py-3 text-gray-600">{task.assignedUser?.name || "Unassigned"}</td>
                         <td className="px-4 py-3 text-gray-600">{task.deadline ? formatDate(task.deadline) : "-"}</td>
                         <td className="px-4 py-3">
-                          <Badge variant={
-                            task.status === "COMPLETED" ? "success" :
-                            task.status === "IN_PROGRESS" ? "info" :
-                            task.status === "NEW" ? "warning" : "default"
-                          }>
+                          <Badge variant={task.status === "COMPLETED" ? "success" : task.status === "IN_PROGRESS" ? "info" : task.status === "NEW" ? "warning" : "default"}>
                             {task.status.replace(/_/g, " ")}
                           </Badge>
                         </td>
@@ -256,7 +354,6 @@ export default function ClientDetailPage() {
                       <p className="text-2xl font-bold text-yellow-600">{report.pendingCount || 0}</p>
                     </div>
                   </div>
-
                   {report.statusDistribution && report.statusDistribution.length > 0 && (
                     <div className="mt-4">
                       <h3 className="text-sm font-medium text-gray-700 mb-2">Status Breakdown</h3>
@@ -276,6 +373,49 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Add Calendar Entry" size="lg">
+        <div className="space-y-4">
+          <p className="text-sm text-indigo-600 font-medium">Client: {client.name}</p>
+          <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Enter post title" />
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Category" options={categories.map((c: any) => ({ value: c.id, label: c.name }))} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} />
+            <Select label="Type of Post" options={POST_TYPES.map((t) => ({ value: t, label: t.charAt(0) + t.slice(1).toLowerCase() }))} value={form.postType} onChange={(e) => setForm({ ...form, postType: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Posting Date" type="date" value={form.postingDate} onChange={(e) => setForm({ ...form, postingDate: e.target.value })} required />
+            <Input label="Posting Time" type="time" value={form.postingTime} onChange={(e) => setForm({ ...form, postingTime: e.target.value })} />
+          </div>
+          <Select label="Assigned To" options={[{ value: "", label: "Unassigned" }, ...users.map((u) => ({ value: u.id, label: u.name }))]} value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label>
+            <div className="flex flex-wrap gap-2">
+              {PLATFORMS.map((p) => (
+                <button key={p} type="button" onClick={() => togglePlatform(p)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                    form.platforms.includes(p) ? "bg-indigo-100 border-indigo-300 text-indigo-700" : "bg-white border-gray-300 text-gray-600 hover:border-gray-400"
+                  }`}
+                >{p}</button>
+              ))}
+            </div>
+          </div>
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Creative Brief</label>
+            <textarea rows={2} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" value={form.creativeBrief} onChange={(e) => setForm({ ...form, creativeBrief: e.target.value })} />
+          </div>
+          <Input label="Caption" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} />
+          <Input label="Hashtags (comma separated)" value={form.hashtags} onChange={(e) => setForm({ ...form, hashtags: e.target.value })} />
+          <Input label="Design Direction" value={form.designDirection} onChange={(e) => setForm({ ...form, designDirection: e.target.value })} />
+          <div className="w-full">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reference Links</label>
+            <textarea rows={2} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" value={form.referenceLinks} onChange={(e) => setForm({ ...form, referenceLinks: e.target.value })} />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} isLoading={saving}>Create Entry</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
