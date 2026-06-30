@@ -12,7 +12,7 @@ export async function GET(req: Request) {
 
     const role = (session.user as any)?.role;
 
-    if (role === "ADMIN") {
+    if (role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -23,9 +23,7 @@ export async function GET(req: Request) {
 
     const where: Record<string, unknown> = {};
 
-    if (role === "RESOURCE") {
-      where.userId = (session.user as any).id;
-    } else if (userId) {
+    if (userId) {
       where.userId = userId;
     }
 
