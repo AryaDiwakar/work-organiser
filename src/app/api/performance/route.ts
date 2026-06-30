@@ -10,6 +10,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const role = (session.user as any)?.role;
+    if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const {
       calendarEntryId,
       linkedinReach, facebookReach, instagramReach,

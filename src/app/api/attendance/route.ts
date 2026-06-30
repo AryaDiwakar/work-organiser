@@ -10,6 +10,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const role = (session.user as any)?.role;
+
+    if (role === "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
     const startDate = searchParams.get("startDate");
@@ -17,7 +23,11 @@ export async function GET(req: Request) {
 
     const where: Record<string, unknown> = {};
 
-    if (userId) where.userId = userId;
+    if (role === "RESOURCE") {
+      where.userId = (session.user as any).id;
+    } else if (userId) {
+      where.userId = userId;
+    }
 
     if (startDate || endDate) {
       where.date = {};
