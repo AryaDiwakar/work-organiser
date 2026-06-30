@@ -63,8 +63,8 @@ export default function LoginPage() {
               </div>
             ) : (
               <Image
-                src="/godigitell-logo.png"
-                alt="GoDigitell"
+                src="/lo.jpeg"
+                alt="Logo"
                 width={180}
                 height={60}
                 className="mx-auto mb-4"
