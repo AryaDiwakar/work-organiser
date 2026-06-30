@@ -48,6 +48,7 @@ export default function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<TaskForm>(defaultForm);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchTasks();
@@ -96,8 +97,12 @@ export default function TasksPage() {
   }
 
   async function handleSave() {
-    if (!form.title.trim() || !form.clientId) return;
+    if (!form.title.trim() || !form.clientId) {
+      setError("Title and Client are required");
+      return;
+    }
     setSaving(true);
+    setError("");
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
@@ -111,8 +116,12 @@ export default function TasksPage() {
       if (res.ok) {
         setModalOpen(false);
         fetchTasks();
+      } else {
+        const errData = await res.json();
+        setError(errData.error || "Failed to create task");
       }
     } catch (error) {
+      setError("Network error");
       console.error("Failed to create task:", error);
     } finally {
       setSaving(false);
@@ -259,6 +268,7 @@ export default function TasksPage() {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
           </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} isLoading={saving}>Create</Button>
