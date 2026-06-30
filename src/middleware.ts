@@ -27,10 +27,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard/admin", req.url));
   }
 
-  if (pathname.startsWith("/dashboard/resource/attendance") && role !== "SUPER_ADMIN") {
-    return NextResponse.redirect(new URL("/dashboard/resource", req.url));
-  }
-
   return NextResponse.next();
 }
 

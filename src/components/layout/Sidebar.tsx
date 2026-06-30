@@ -33,6 +33,7 @@ const adminLinks = [
 const resourceLinks = [
   { href: "/dashboard/resource", label: "My Tasks", icon: ClipboardList },
   { href: "/dashboard/resource/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/dashboard/resource/attendance", label: "Attendance", icon: Clock },
 ];
 
 export function Sidebar() {
