@@ -114,18 +114,14 @@ export default function ClientDetailPage() {
   }
 
   async function handleSave() {
-    if (!form.title.trim() || !form.categoryId || !form.postingDate) {
-      setError("Title, Category, and Posting Date are required");
-      return;
-    }
     setSaving(true);
     setError("");
     try {
       const body = {
         ...form,
         clientId: id,
-        hashtags: form.hashtags.split(",").map((h) => h.trim()).filter(Boolean),
-        referenceLinks: form.referenceLinks.split("\n").map((r) => r.trim()).filter(Boolean),
+        hashtags: form.hashtags?.split(",").map((h: string) => h.trim()).filter(Boolean) || [],
+        referenceLinks: form.referenceLinks?.split("\n").map((r: string) => r.trim()).filter(Boolean) || [],
       };
       const res = await fetch("/api/calendar", {
         method: "POST",
@@ -414,8 +410,7 @@ export default function ClientDetailPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Creative Brief</label>
             <textarea rows={2} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" value={form.creativeBrief} onChange={(e) => setForm({ ...form, creativeBrief: e.target.value })} />
           </div>
-          <Input label="Caption" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} />
-          <Input label="Hashtags (comma separated)" value={form.hashtags} onChange={(e) => setForm({ ...form, hashtags: e.target.value })} />
+          <Input label="Caption & Hashtags" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} />
           <Input label="Design Direction" value={form.designDirection} onChange={(e) => setForm({ ...form, designDirection: e.target.value })} />
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-700 mb-1">Reference Links</label>

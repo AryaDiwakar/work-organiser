@@ -167,17 +167,13 @@ export default function CalendarPage() {
   }
 
   async function handleSave() {
-    if (!form.title.trim() || !form.clientId || !form.categoryId || !form.postingDate) {
-      setError("Title, Client, Category, and Posting Date are required");
-      return;
-    }
     setSaving(true);
     setError("");
     try {
       const body = {
         ...form,
-        hashtags: form.hashtags.split(",").map((h) => h.trim()).filter(Boolean),
-        referenceLinks: form.referenceLinks.split("\n").map((r) => r.trim()).filter(Boolean),
+        hashtags: form.hashtags?.split(",").map((h: string) => h.trim()).filter(Boolean) || [],
+        referenceLinks: form.referenceLinks?.split("\n").map((r: string) => r.trim()).filter(Boolean) || [],
       };
       const res = await fetch("/api/calendar", {
         method: "POST",
@@ -212,7 +208,7 @@ export default function CalendarPage() {
         platforms: form.platforms,
         creativeBrief: form.creativeBrief,
         caption: form.caption,
-        hashtags: form.hashtags.split(",").map((h) => h.trim()).filter(Boolean),
+        hashtags: form.hashtags?.split(",").map((h: string) => h.trim()).filter(Boolean) || [],
         designDirection: form.designDirection,
         referenceLinks: form.referenceLinks.split("\n").map((r) => r.trim()).filter(Boolean),
         postingDate: form.postingDate,
@@ -317,8 +313,7 @@ export default function CalendarPage() {
         <label className="block text-sm font-medium text-gray-700 mb-1">Creative Brief</label>
         <textarea rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" value={form.creativeBrief} onChange={(e) => setForm({ ...form, creativeBrief: e.target.value })} placeholder="Brief description of the creative direction" />
       </div>
-      <Input label="Caption & Hashtags" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} placeholder="Enter caption (hashtags can be comma-separated below)" />
-      <Input label="Hashtags (comma separated)" value={form.hashtags} onChange={(e) => setForm({ ...form, hashtags: e.target.value })} placeholder="e.g. marketing, branding, design" />
+      <Input label="Caption & Hashtags" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} placeholder="Enter caption with hashtags" />
       <div className="w-full">
         <label className="block text-sm font-medium text-gray-700 mb-1">Design Direction Suggestions</label>
         <textarea rows={2} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" value={form.designDirection} onChange={(e) => setForm({ ...form, designDirection: e.target.value })} placeholder="Color palette, font style, mood board references" />
