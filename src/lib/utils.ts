@@ -14,6 +14,15 @@ export function formatDate(date: Date | string | null | undefined): string {
   }).format(new Date(date));
 }
 
+export function formatTime(date: Date | string | null | undefined): string {
+  if (!date) return "-";
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(date));
+}
+
 export function formatDateTime(date: Date | string | null | undefined): string {
   if (!date) return "-";
   return new Intl.DateTimeFormat("en-IN", {
@@ -96,7 +105,7 @@ export function getStatusColor(status: string): string {
     DESIGNED: "bg-blue-100 text-blue-800",
     SHARED_TO_CLIENT: "bg-indigo-100 text-indigo-800",
     APPROVED: "bg-green-100 text-green-800",
-    PR_FEEDBACK: "bg-yellow-100 text-yellow-800",
+    INTERNAL_FEEDBACK: "bg-yellow-100 text-yellow-800",
     CLIENT_FEEDBACK: "bg-orange-100 text-orange-800",
     SCHEDULED: "bg-purple-100 text-purple-800",
     POSTED: "bg-emerald-100 text-emerald-800",
@@ -112,7 +121,7 @@ export function getStatusLabel(status: string): string {
     DESIGNED: "Designed",
     SHARED_TO_CLIENT: "Shared to client",
     APPROVED: "Approved",
-    PR_FEEDBACK: "PR Feedback",
+    INTERNAL_FEEDBACK: "Internal Feedback",
     CLIENT_FEEDBACK: "Client Feedback",
     SCHEDULED: "Scheduled",
     POSTED: "Posted",
@@ -123,7 +132,7 @@ export function getStatusLabel(status: string): string {
 }
 
 export function isReworkStatus(status: string): boolean {
-  return ["PR_FEEDBACK", "CLIENT_FEEDBACK", "REJECTED", "YET_TO_BE_DONE"].includes(status);
+  return ["INTERNAL_FEEDBACK", "CLIENT_FEEDBACK", "REJECTED", "YET_TO_BE_DONE"].includes(status);
 }
 
 export function isAdminRole(role: string): boolean {

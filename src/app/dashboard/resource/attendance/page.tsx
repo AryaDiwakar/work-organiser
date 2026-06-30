@@ -43,7 +43,7 @@ export default function ResourceAttendancePage() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
-  const [leaveForm, setLeaveForm] = useState({ startDate: "", endDate: "", type: "leave", reason: "" });
+  const [leaveForm, setLeaveForm] = useState({ startDate: "", endDate: "", type: "leave", reason: "", permissionHours: "" });
   const [applyingLeave, setApplyingLeave] = useState(false);
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export default function ResourceAttendancePage() {
       });
       if (res.ok) {
         setLeaveModalOpen(false);
-        setLeaveForm({ startDate: "", endDate: "", type: "leave", reason: "" });
+        setLeaveForm({ startDate: "", endDate: "", type: "leave", reason: "", permissionHours: "" });
         fetchData();
       }
     } catch (error) {
@@ -326,10 +326,10 @@ export default function ResourceAttendancePage() {
                     </td>
                     <td className="px-5 py-3">
                       <Badge variant={
-                        leave.status === "APPROVED" ? "success" :
-                        leave.status === "REJECTED" ? "danger" : "warning"
+                        leave.status === "approved" || leave.status === "APPROVED" ? "success" :
+                        leave.status === "denied" || leave.status === "REJECTED" ? "danger" : "warning"
                       }>
-                        {leave.status || "PENDING"}
+                        {leave.status ? leave.status.charAt(0).toUpperCase() + leave.status.slice(1) : "Pending"}
                       </Badge>
                     </td>
                   </tr>
@@ -371,6 +371,9 @@ export default function ResourceAttendancePage() {
             value={leaveForm.type}
             onChange={(e) => setLeaveForm({ ...leaveForm, type: e.target.value })}
           />
+          {leaveForm.type === "permission" && (
+            <Input label="Permission Hours" type="number" value={leaveForm.permissionHours} onChange={(e) => setLeaveForm({ ...leaveForm, permissionHours: e.target.value })} placeholder="e.g. 2" />
+          )}
           <div className="w-full">
             <label htmlFor="leaveReason" className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
             <textarea

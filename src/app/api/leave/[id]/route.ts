@@ -12,8 +12,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const userRole = (session.user as { role: string }).role;
-    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Only ADMIN can update leave status" }, { status: 403 });
+    if (userRole !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Only super admin can approve/deny requests" }, { status: 403 });
     }
 
     const existing = await prisma.leave.findUnique({ where: { id: id } });
@@ -21,17 +21,23 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Leave not found" }, { status: 404 });
     }
 
-    const { status } = await req.json();
+    const { status, rejectionReason } = await req.json();
 
-    if (!status) {
-      return NextResponse.json({ error: "Status is required" }, { status: 400 });
+    if (!status || !["approved", "denied"].includes(status)) {
+      return NextResponse.json({ error: "Status must be 'approved' or 'denied'" }, { status: 400 });
     }
 
     const leave = await prisma.leave.update({
       where: { id: id },
-      data: { status },
+      data: {
+        status,
+        approvedById: (session.user as { id: string }).id,
+        approvedAt: new Date(),
+        rejectionReason: status === "denied" ? rejectionReason : null,
+      },
       include: {
         user: { select: { id: true, name: true, email: true } },
+        approvedBy: { select: { id: true, name: true } },
       },
     });
 

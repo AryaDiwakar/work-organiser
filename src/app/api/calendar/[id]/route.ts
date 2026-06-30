@@ -29,6 +29,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (body.description !== undefined) updateData.description = body.description;
     if (body.postType !== undefined) updateData.postType = body.postType;
     if (body.platform !== undefined) updateData.platform = body.platform;
+    if (body.platforms !== undefined) updateData.platform = body.platforms;
     if (body.postingDate !== undefined) updateData.postingDate = new Date(body.postingDate);
     if (body.postingTime !== undefined) updateData.postingTime = body.postingTime;
     if (body.assignedTo !== undefined) updateData.assignedTo = body.assignedTo;

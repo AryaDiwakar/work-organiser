@@ -70,19 +70,22 @@ async function main() {
   console.log("Created client:", client.name);
 
   const categories = [
-    { name: "Brand Awareness", description: "Increase brand visibility", color: "#6366f1", clientId: client.id },
-    { name: "Promotional", description: "Promote products/services", color: "#f59e0b", clientId: client.id },
-    { name: "Educational", description: "Educate audience", color: "#10b981", clientId: client.id },
-    { name: "Festive Campaigns", description: "Festival-related content", color: "#ef4444", clientId: client.id },
-    { name: "Product Highlight", description: "Showcase products", color: "#8b5cf6", clientId: client.id },
-    { name: "Engagement Posts", description: "Boost audience engagement", color: "#ec4899", clientId: client.id },
+    { name: "Brand Awareness", description: "Increase brand visibility", color: "#6366f1" },
+    { name: "Promotional", description: "Promote products/services", color: "#f59e0b" },
+    { name: "Educational", description: "Educate audience", color: "#10b981" },
+    { name: "Festive Campaigns", description: "Festival-related content", color: "#ef4444" },
+    { name: "Product Highlight", description: "Showcase products", color: "#8b5cf6" },
+    { name: "Engagement Posts", description: "Boost audience engagement", color: "#ec4899" },
   ];
 
   for (const cat of categories) {
     await prisma.category.upsert({
-      where: { name_clientId: { name: cat.name, clientId: client.id } },
+      where: { id: cat.name.toLowerCase().replace(/\s+/g, "-") },
       update: {},
-      create: cat,
+      create: {
+        id: cat.name.toLowerCase().replace(/\s+/g, "-"),
+        ...cat,
+      },
     });
   }
   console.log("Created categories");

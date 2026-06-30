@@ -11,27 +11,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const existing = await prisma.calendarEntry.findUnique({
-      where: { id: id },
-    });
-
-    if (!existing) {
+    const entry = await prisma.calendarEntry.findUnique({ where: { id } });
+    if (!entry) {
       return NextResponse.json({ error: "Calendar entry not found" }, { status: 404 });
     }
 
-    const { notes } = await req.json();
-    const userId = (session.user as { id: string }).id;
-
-    const completion = await prisma.taskCompletion.create({
+    await prisma.taskCompletion.create({
       data: {
         calendarEntryId: id,
-        userId,
-        notes,
+        userId: (session.user as { id: string }).id,
+        notes: "Marked complete by resource",
       },
     });
 
-    return NextResponse.json(completion, { status: 201 });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to mark task as complete" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to mark complete" }, { status: 500 });
   }
 }

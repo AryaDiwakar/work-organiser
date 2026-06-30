@@ -65,7 +65,9 @@ export async function POST(req: Request) {
       title,
       postType,
       platform,
+      platforms: bodyPlatforms,
       postingDate,
+      postingTime,
       assignedTo,
       creativeBrief,
       caption,
@@ -86,14 +88,17 @@ export async function POST(req: Request) {
     const schedulingDeadline = new Date(postingDateObj);
     schedulingDeadline.setDate(schedulingDeadline.getDate() - 3);
 
+    const finalPlatforms = bodyPlatforms || platform || [];
+
     const entry = await prisma.calendarEntry.create({
       data: {
         clientId,
         categoryId,
         title,
         postType: postType || "POSTER",
-        platform: platform || [],
+        platform: finalPlatforms,
         postingDate: postingDateObj,
+        postingTime: postingTime || null,
         assignedTo,
         creativeBrief,
         caption,

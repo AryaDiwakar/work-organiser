@@ -18,15 +18,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const { name, description, color } = await req.json();
 
-    if (name && name !== existing.name) {
-      const duplicate = await prisma.category.findUnique({
-        where: { name_clientId: { name, clientId: existing.clientId } },
-      });
-      if (duplicate) {
-        return NextResponse.json({ error: "Category name already exists for this client" }, { status: 400 });
-      }
-    }
-
     const category = await prisma.category.update({
       where: { id: id },
       data: { name, description, color },

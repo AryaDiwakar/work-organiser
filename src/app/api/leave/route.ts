@@ -13,15 +13,18 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
     const status = searchParams.get("status");
+    const type = searchParams.get("type");
 
     const where: Record<string, unknown> = {};
     if (userId) where.userId = userId;
     if (status) where.status = status;
+    if (type) where.type = type;
 
     const leaves = await prisma.leave.findMany({
       where,
       include: {
         user: { select: { id: true, name: true, email: true } },
+        approvedBy: { select: { id: true, name: true } },
       },
       orderBy: { appliedAt: "desc" },
     });
@@ -39,7 +42,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { userId, startDate, endDate, type, reason } = await req.json();
+    const { userId, startDate, endDate, type, reason, permissionHours } = await req.json();
 
     if (!userId || !startDate || !endDate) {
       return NextResponse.json({ error: "userId, startDate, and endDate are required" }, { status: 400 });
@@ -62,6 +65,7 @@ export async function POST(req: Request) {
         type: type || "leave",
         reason,
         isRed,
+        permissionHours: type === "permission" ? (permissionHours ? parseFloat(permissionHours) : null) : null,
       },
       include: {
         user: { select: { id: true, name: true, email: true } },

@@ -12,7 +12,6 @@ export async function GET() {
     }
 
     const users = await prisma.user.findMany({
-      where: { isActive: true },
       select: {
         id: true,
         name: true,
@@ -37,6 +36,9 @@ export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Only super admin can add users" }, { status: 403 });
     }
 
     const { name, email, password, role, phone } = await req.json();

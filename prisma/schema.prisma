@@ -32,6 +32,7 @@ model User {
   attendance      Attendance[]
   leaveRequests   Leave[]
   taskCompletions TaskCompletion[]
+  leaveApprovals  Leave[]          @relation("ApprovedBy")
 }
 
 model Account {
@@ -72,36 +73,26 @@ model VerificationToken {
 model Client {
   id          String    @id @default(cuid())
   name        String
-  email       String?
-  phone       String?
-  company     String?
   website     String?
   project     String?
-  notes       String?
-  logo        String?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  categories  Category[]
   calendars   CalendarEntry[]
   adhocTasks  AdhocTask[]
 }
 
 model Category {
-  id        String   @id @default(cuid())
-  name      String
+  id          String   @id @default(cuid())
+  name        String
   description String?
-  color     String   @default("#6366f1")
-  isActive  Boolean  @default(true)
-  clientId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  color       String   @default("#6366f1")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  client    Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   calendars CalendarEntry[]
-
-  @@unique([name, clientId])
 }
 
 enum PostType {
@@ -119,7 +110,7 @@ enum CalendarStatus {
   DESIGNED
   SHARED_TO_CLIENT
   APPROVED
-  PR_FEEDBACK
+  INTERNAL_FEEDBACK
   CLIENT_FEEDBACK
   SCHEDULED
   POSTED
@@ -145,12 +136,12 @@ model CalendarEntry {
   status          CalendarStatus @default(YET_TO_BE_DONE)
   slaStatus       String?        @default("on_track")
 
-  creationDate      DateTime  @default(now())
-  approvalDeadline  DateTime?
+  creationDate       DateTime  @default(now())
+  approvalDeadline   DateTime?
   schedulingDeadline DateTime?
-  approvalDate      DateTime?
-  schedulingDate    DateTime?
-  postedDate        DateTime?
+  approvalDate       DateTime?
+  schedulingDate     DateTime?
+  postedDate         DateTime?
 
   assignedTo   String?
   assignedUser User?     @relation("AssignedResource", fields: [assignedTo], references: [id])
@@ -190,12 +181,14 @@ model TaskCompletion {
 model PerformanceEntry {
   id              String   @id @default(cuid())
   calendarEntryId String   @unique
-  reach           Int?
+  linkedinReach   Int?
+  facebookReach   Int?
+  instagramReach  Int?
+  youtubeReach    Int?
+  googleReach     Int?
+  twitterReach    Int?
+  totalReach      Int?
   engagement      Int?
-  likes           Int?
-  comments        Int?
-  shares          Int?
-  saves           Int?
   updatedAt       DateTime @updatedAt
 
   calendarEntry CalendarEntry @relation(fields: [calendarEntryId], references: [id], onDelete: Cascade)
@@ -238,15 +231,20 @@ model Attendance {
 }
 
 model Leave {
-  id          String   @id @default(cuid())
-  userId      String
-  startDate   DateTime
-  endDate     DateTime
-  type        String   @default("leave")
-  reason      String?
-  status      String   @default("pending")
-  appliedAt   DateTime @default(now())
-  isRed       Boolean  @default(false)
+  id             String    @id @default(cuid())
+  userId         String
+  startDate      DateTime
+  endDate        DateTime
+  type           String    @default("leave")
+  reason         String?
+  status         String    @default("pending")
+  appliedAt      DateTime  @default(now())
+  isRed          Boolean   @default(false)
+  approvedById   String?
+  approvedAt     DateTime?
+  permissionHours Float?
+  rejectionReason String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy User? @relation("ApprovedBy", fields: [approvedById], references: [id])
 }

@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { Plus, Edit2, Trash2 } from "lucide-react";
@@ -15,34 +14,24 @@ interface Category {
   color: string;
   isActive: boolean;
   createdAt: string;
-  client: { id: string; name: string };
-}
-
-interface Client {
-  id: string;
-  name: string;
 }
 
 interface CategoryForm {
   name: string;
   description: string;
   color: string;
-  clientId: string;
-  isActive: boolean;
 }
 
-const defaultForm: CategoryForm = { name: "", description: "", color: "#6366f1", clientId: "", isActive: true };
+const defaultForm: CategoryForm = { name: "", description: "", color: "#6366f1" };
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [form, setForm] = useState<CategoryForm>(defaultForm);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [selectedClient, setSelectedClient] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -50,28 +39,19 @@ export default function CategoriesPage() {
 
   async function fetchData() {
     try {
-      const [catRes, clientRes] = await Promise.all([
-        fetch("/api/categories"),
-        fetch("/api/clients"),
-      ]);
-      const catData = await catRes.json();
-      const clientData = await clientRes.json();
-      setCategories(Array.isArray(catData) ? catData : catData.data || []);
-      setClients(Array.isArray(clientData) ? clientData : clientData.data || []);
+      const res = await fetch("/api/categories");
+      const data = await res.json();
+      setCategories(Array.isArray(data) ? data : data.data || []);
     } catch (error) {
-      console.error("Failed to fetch data:", error);
+      console.error("Failed to fetch categories:", error);
     } finally {
       setLoading(false);
     }
   }
 
-  const filteredCategories = selectedClient
-    ? categories.filter((c) => c.client?.id === selectedClient)
-    : categories;
-
   function openAddModal() {
     setEditingCategory(null);
-    setForm({ ...defaultForm, clientId: selectedClient || (clients[0]?.id || "") });
+    setForm(defaultForm);
     setModalOpen(true);
   }
 
@@ -81,14 +61,12 @@ export default function CategoriesPage() {
       name: cat.name,
       description: cat.description || "",
       color: cat.color,
-      clientId: cat.client?.id || "",
-      isActive: cat.isActive,
     });
     setModalOpen(true);
   }
 
   async function handleSave() {
-    if (!form.name.trim() || !form.clientId) return;
+    if (!form.name.trim()) return;
     setSaving(true);
     try {
       const url = editingCategory ? `/api/categories/${editingCategory.id}` : "/api/categories";
@@ -142,19 +120,6 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="w-64">
-          <Select
-            options={[
-              { value: "", label: "All Clients" },
-              ...clients.map((c) => ({ value: c.id, label: c.name })),
-            ]}
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-          />
-        </div>
-      </div>
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -163,32 +128,27 @@ export default function CategoriesPage() {
                 <th className="px-5 py-3 font-medium">Name</th>
                 <th className="px-5 py-3 font-medium">Description</th>
                 <th className="px-5 py-3 font-medium">Color</th>
-                <th className="px-5 py-3 font-medium">Client</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium">Created</th>
                 <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredCategories.length > 0 ? (
-                filteredCategories.map((cat) => (
+              {categories.length > 0 ? (
+                categories.map((cat) => (
                   <tr key={cat.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{cat.name}</td>
                     <td className="px-5 py-3 text-gray-600">{cat.description || "-"}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <span
-                          className="inline-block h-5 w-5 rounded-full border border-gray-300"
-                          style={{ backgroundColor: cat.color }}
-                        />
+                        <span className="inline-block h-5 w-5 rounded-full border border-gray-300" style={{ backgroundColor: cat.color }} />
                         <span className="text-xs text-gray-500">{cat.color}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{cat.client?.name || "-"}</td>
                     <td className="px-5 py-3">
-                      <Badge variant={cat.isActive ? "success" : "danger"}>
-                        {cat.isActive ? "Active" : "Inactive"}
-                      </Badge>
+                      <Badge variant={cat.isActive ? "success" : "danger"}>{cat.isActive ? "Active" : "Inactive"}</Badge>
                     </td>
+                    <td className="px-5 py-3 text-gray-600">{formatDate(cat.createdAt)}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" onClick={() => openEditModal(cat)}>
@@ -203,9 +163,7 @@ export default function CategoriesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
-                    {selectedClient ? "No categories for this client." : "No categories found."}
-                  </td>
+                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">No categories found.</td>
                 </tr>
               )}
             </tbody>
@@ -213,27 +171,11 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingCategory ? "Edit Category" : "Add Category"} size="lg">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingCategory ? "Edit Category" : "Add Category"} size="md">
         <div className="space-y-4">
-          <Select
-            label="Client"
-            options={clients.map((c) => ({ value: c.id, label: c.name }))}
-            value={form.clientId}
-            onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-          />
-          <Input label="Name" id="catName" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label="Description" id="catDesc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <Input label="Name" id="catName" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Category name" />
+          <Input label="Description" id="catDesc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description" />
           <Input label="Color" id="catColor" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="catActive"
-              checked={form.isActive}
-              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <label htmlFor="catActive" className="text-sm text-gray-700">Active</label>
-          </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} isLoading={saving}>{editingCategory ? "Update" : "Create"}</Button>

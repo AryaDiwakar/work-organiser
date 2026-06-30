@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   Building2,
+  CalendarCheck,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 
@@ -24,6 +25,7 @@ const adminLinks = [
   { href: "/dashboard/admin/tasks", label: "Adhoc Tasks", icon: ClipboardList },
   { href: "/dashboard/admin/resources", label: "Resources", icon: Users },
   { href: "/dashboard/admin/attendance", label: "Attendance", icon: Clock },
+  { href: "/dashboard/admin/leaves", label: "Leaves", icon: CalendarCheck },
   { href: "/dashboard/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/admin/settings", label: "Settings", icon: Settings },
 ];

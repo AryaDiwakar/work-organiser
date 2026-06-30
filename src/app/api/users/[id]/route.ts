@@ -17,7 +17,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { name, email, password, role, phone } = await req.json();
+    const body = await req.json();
+    const { name, email, password, role, phone, isActive } = body;
 
     if (email && email !== existing.email) {
       const duplicate = await prisma.user.findUnique({ where: { email } });
@@ -31,23 +32,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (email !== undefined) updateData.email = email;
     if (role !== undefined) updateData.role = role;
     if (phone !== undefined) updateData.phone = phone;
+    if (isActive !== undefined) updateData.isActive = isActive;
     if (password) updateData.password = await hash(password, 12);
 
     const user = await prisma.user.update({
       where: { id: id },
       data: updateData,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        isActive: true,
-        updatedAt: true,
-      },
     });
 
-    return NextResponse.json(user);
+    return NextResponse.json({ success: true, user });
   } catch (error) {
     return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
   }
