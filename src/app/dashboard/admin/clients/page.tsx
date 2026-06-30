@@ -12,25 +12,19 @@ import { Plus, Eye, Edit2, Trash2 } from "lucide-react";
 interface Client {
   id: string;
   name: string;
-  email: string | null;
-  phone: string | null;
-  company: string | null;
   website: string | null;
-  notes: string | null;
+  project: string | null;
   isActive: boolean;
   createdAt: string;
 }
 
 interface ClientForm {
   name: string;
-  email: string;
-  phone: string;
-  company: string;
   website: string;
-  notes: string;
+  project: string;
 }
 
-const defaultForm: ClientForm = { name: "", email: "", phone: "", company: "", website: "", notes: "" };
+const defaultForm: ClientForm = { name: "", website: "", project: "" };
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -67,11 +61,8 @@ export default function ClientsPage() {
     setEditingClient(client);
     setForm({
       name: client.name,
-      email: client.email || "",
-      phone: client.phone || "",
-      company: client.company || "",
       website: client.website || "",
-      notes: client.notes || "",
+      project: client.project || "",
     });
     setModalOpen(true);
   }
@@ -139,10 +130,9 @@ export default function ClientsPage() {
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
                 <th className="px-5 py-3 font-medium">Name</th>
-                <th className="px-5 py-3 font-medium">Email</th>
-                <th className="px-5 py-3 font-medium">Company</th>
+                <th className="px-5 py-3 font-medium">Website</th>
+                <th className="px-5 py-3 font-medium">Project</th>
                 <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Created</th>
                 <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -158,8 +148,8 @@ export default function ClientsPage() {
                         {client.name}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{client.email || "-"}</td>
-                    <td className="px-5 py-3 text-gray-600">{client.company || "-"}</td>
+                    <td className="px-5 py-3 text-gray-600">{client.website || "-"}</td>
+                    <td className="px-5 py-3 text-gray-600">{client.project || "-"}</td>
                     <td className="px-5 py-3">
                       <Badge variant={client.isActive ? "success" : "danger"}>
                         {client.isActive ? "Active" : "Inactive"}
@@ -185,7 +175,7 @@ export default function ClientsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                    <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
                     No clients found. Click &quot;Add Client&quot; to create one.
                   </td>
                 </tr>
@@ -197,21 +187,9 @@ export default function ClientsPage() {
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingClient ? "Edit Client" : "Add Client"} size="lg">
         <div className="space-y-4">
-          <Input label="Name" id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label="Email" id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input label="Phone" id="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <Input label="Company" id="company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
-          <Input label="Website" id="website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
-          <div className="w-full">
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-            <textarea
-              id="notes"
-              rows={3}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-          </div>
+          <Input label="Client Name" id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Enter client name" />
+          <Input label="Website" id="website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="e.g. https://client.com" />
+          <Input label="Project Working On" id="project" value={form.project} onChange={(e) => setForm({ ...form, project: e.target.value })} placeholder="e.g. Social Media Management" />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} isLoading={saving}>{editingClient ? "Update" : "Create"}</Button>

@@ -76,6 +76,7 @@ model Client {
   phone       String?
   company     String?
   website     String?
+  project     String?
   notes       String?
   logo        String?
   isActive    Boolean   @default(true)

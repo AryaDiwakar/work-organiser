@@ -39,11 +39,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    const { name, email, phone, company, website, notes } = await req.json();
+    const { name, website, project } = await req.json();
 
     const client = await prisma.client.update({
       where: { id: id },
-      data: { name, email, phone, company, website, notes },
+      data: { name, website, project },
     });
 
     return NextResponse.json(client);

@@ -91,9 +91,8 @@ export default function ClientDetailPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
             <p className="text-gray-500 mt-1">
-              {client.email && <span>{client.email} | </span>}
-              {client.company && <span>{client.company}</span>}
-              {client.phone && <span> | {client.phone}</span>}
+              {client.website && <span>{client.website} | </span>}
+              {client.project && <span>Project: {client.project}</span>}
             </p>
           </div>
           <Badge variant={client.isActive ? "success" : "danger"}>

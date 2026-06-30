@@ -63,11 +63,8 @@ async function main() {
     create: {
       id: "demo-client-1",
       name: "Demo Client Inc.",
-      email: "client@democlient.com",
-      company: "Demo Client Inc.",
-      phone: "+91-9876543210",
       website: "https://democlient.com",
-      notes: "Demo client for testing",
+      project: "Social Media Management",
     },
   });
   console.log("Created client:", client.name);
