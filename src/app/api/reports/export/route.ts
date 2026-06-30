@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
     const client = await prisma.client.findUnique({
       where: { id: clientId },
-      select: { id: true, name: true, email: true, company: true },
+      select: { id: true, name: true, website: true, project: true },
     });
 
     const totalPosts = posts.length;
