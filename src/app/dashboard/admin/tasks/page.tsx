@@ -169,7 +169,7 @@ export default function TasksPage() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-end gap-4">
         <div className="w-56">
           <Select
             options={[
@@ -180,9 +180,13 @@ export default function TasksPage() {
             onChange={(e) => setClientFilter(e.target.value)}
           />
         </div>
-        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-44" placeholder="From" />
-        <span className="text-gray-400">to</span>
-        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-44" placeholder="To" />
+        <div className="w-44">
+          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <span className="text-gray-400 pb-2">to</span>
+        <div className="w-44">
+          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

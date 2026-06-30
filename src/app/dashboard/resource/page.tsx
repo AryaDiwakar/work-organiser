@@ -141,16 +141,22 @@ export default function ResourceDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Welcome back, {session?.user?.name || "Resource"}
           </h1>
           <p className="text-gray-500 mt-1">Your assigned tasks and upcoming deadlines.</p>
         </div>
-        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-44" placeholder="From" />
-        <span className="text-gray-400">to</span>
-        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-44" placeholder="To" />
+        <div className="flex items-end gap-4">
+          <div className="w-44">
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <span className="text-gray-400 pb-2">to</span>
+          <div className="w-44">
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+        </div>
       </div>
 
       {upcoming.length > 0 && (
