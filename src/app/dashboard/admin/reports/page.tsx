@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { FileText, BarChart3 } from "lucide-react";
+import { FileText, BarChart3, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -52,6 +53,30 @@ export default function ReportsPage() {
     }
   }
 
+  function downloadExcel() {
+    if (!report) return;
+    const statusRows = (report.statusDistribution || []).map((s: any) => ({
+      "Status": getStatusLabel(s.status),
+      "Count": s.count,
+    }));
+    const platformRows = (report.platformBreakdown || []).map((p: any) => ({
+      "Platform": p.platform,
+      "Count": p.count,
+    }));
+    const categoryRows = (report.categoryPerformance || []).map((c: any) => ({
+      "Category": c.categoryName,
+      "Posts": c.count,
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(statusRows);
+    const ws2 = XLSX.utils.json_to_sheet(platformRows);
+    const ws3 = XLSX.utils.json_to_sheet(categoryRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, "Status");
+    XLSX.utils.book_append_sheet(wb, ws2, "Platform");
+    XLSX.utils.book_append_sheet(wb, ws3, "Category");
+    XLSX.writeFile(wb, `client_report_${clientId}_${month}_${year}.xlsx`);
+  }
+
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
     value: String(i + 1), label: new Date(2024, i).toLocaleString("default", { month: "long" }),
   }));
@@ -81,6 +106,12 @@ export default function ReportsPage() {
                   <Select label="Year" options={yearOptions} value={year} onChange={(e) => setYear(e.target.value)} />
                 </div>
                 <Button onClick={generateClientReport} isLoading={loading}>Generate Report</Button>
+                {report && (
+                  <Button variant="outline" onClick={downloadExcel}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                )}
               </div>
 
               {report ? (

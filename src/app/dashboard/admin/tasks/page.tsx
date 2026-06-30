@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 interface Task {
   id: string;
@@ -148,6 +149,20 @@ export default function TasksPage() {
     }
   }
 
+  function downloadExcel() {
+    const data = tasks.map((t) => ({
+      Title: t.title,
+      Client: t.client?.name || "-",
+      "Assigned To": t.assignedUser?.name || "Unassigned",
+      Deadline: t.deadline ? formatDate(t.deadline) : "-",
+      Status: t.status.replace(/_/g, " "),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Tasks");
+    XLSX.writeFile(wb, `tasks_${startDate || "all"}_to_${endDate || "all"}.xlsx`);
+  }
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case "COMPLETED": return "success" as const;
@@ -165,10 +180,16 @@ export default function TasksPage() {
           <h1 className="text-2xl font-bold text-gray-900">Adhoc Tasks</h1>
           <p className="text-gray-500 mt-1">Manage adhoc tasks</p>
         </div>
-        <Button onClick={openAddModal}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Task
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={downloadExcel}>
+            <Download className="h-4 w-4 mr-2" />
+            Excel
+          </Button>
+          <Button onClick={openAddModal}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-end gap-4">

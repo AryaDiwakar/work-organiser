@@ -63,17 +63,15 @@ export default function LoginPage() {
               </div>
             ) : (
               <Image
-                src="/lo.jpeg"
+                src="/godigitell.png"
                 alt="Logo"
-                width={180}
-                height={60}
+                width={100}
+                height={96}
                 className="mx-auto mb-4"
                 priority
                 onError={() => setLogoError(true)}
               />
             )}
-            <h1 className="text-2xl font-bold text-gray-900">Work Organiser</h1>
-            <p className="text-gray-500 mt-1">Sign in to your account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

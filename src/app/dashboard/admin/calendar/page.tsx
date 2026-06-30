@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, BarChart3 } from "lucide-react";
+import { Plus, BarChart3, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 const POST_TYPES = ["POSTER", "REEL", "VIDEO", "GIF", "CAROUSEL", "STORY", "STATIC"];
@@ -293,6 +294,24 @@ export default function CalendarPage() {
     }
   }
 
+  function downloadExcel() {
+    const data = entries.map((e) => ({
+      Title: e.title,
+      Client: e.client?.name || "-",
+      Category: e.category?.name || "-",
+      Type: e.postType,
+      Platform: e.platform?.join(", ") || "-",
+      "Posting Date": formatDate(e.postingDate),
+      "Posting Time": e.postingTime || "-",
+      "Assigned To": e.assignedUser?.name || "-",
+      Status: getStatusLabel(e.status),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Calendar");
+    XLSX.writeFile(wb, `calendar_${startDate || "all"}_to_${endDate || "all"}.xlsx`);
+  }
+
   function togglePlatform(platform: string) {
     setForm((prev) => ({
       ...prev,
@@ -360,10 +379,16 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
           <p className="text-gray-500 mt-1">Monthly content calendar</p>
         </div>
-        <Button onClick={openAddModal}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Entry
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={downloadExcel}>
+            <Download className="h-4 w-4 mr-2" />
+            Excel
+          </Button>
+          <Button onClick={openAddModal}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Entry
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-end gap-4">

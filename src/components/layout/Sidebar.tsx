@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -49,9 +50,9 @@ export function Sidebar() {
 
   return (
     <div className="flex h-full w-64 flex-col bg-gray-900 text-white">
-      <div className="flex h-16 items-center gap-2 px-6 border-b border-gray-700">
-        <CalendarDays className="h-6 w-6 text-indigo-400" />
-        <span className="text-lg font-bold">Work Organiser</span>
+      <div className="flex h-16 items-center gap-2 px-4 border-b border-gray-700">
+        <Image src="/godigitell.png" alt="godigitell" width={28} height={28} className="rounded" />
+        <span className="text-base font-bold">godigitell</span>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {links.map((link) => {
