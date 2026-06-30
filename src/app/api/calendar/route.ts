@@ -13,6 +13,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const clientId = searchParams.get("clientId");
     const assignedTo = searchParams.get("assignedTo");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
     const month = searchParams.get("month");
     const year = searchParams.get("year");
 
@@ -21,7 +23,11 @@ export async function GET(req: Request) {
     if (clientId) where.clientId = clientId;
     if (assignedTo) where.assignedTo = assignedTo;
 
-    if (month && year) {
+    if (startDate || endDate) {
+      where.postingDate = {};
+      if (startDate) (where.postingDate as Record<string, unknown>).gte = new Date(startDate);
+      if (endDate) (where.postingDate as Record<string, unknown>).lte = new Date(endDate + "T23:59:59.999Z");
+    } else if (month && year) {
       const m = parseInt(month);
       const y = parseInt(year);
       where.postingDate = {

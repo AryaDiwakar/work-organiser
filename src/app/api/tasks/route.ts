@@ -13,10 +13,18 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const clientId = searchParams.get("clientId");
     const assignedTo = searchParams.get("assignedTo");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
 
     const where: Record<string, unknown> = {};
     if (clientId) where.clientId = clientId;
     if (assignedTo) where.assignedTo = assignedTo;
+
+    if (startDate || endDate) {
+      where.deadline = {};
+      if (startDate) (where.deadline as Record<string, unknown>).gte = new Date(startDate);
+      if (endDate) (where.deadline as Record<string, unknown>).lte = new Date(endDate + "T23:59:59.999Z");
+    }
 
     const tasks = await prisma.adhocTask.findMany({
       where,

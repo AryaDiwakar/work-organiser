@@ -38,7 +38,8 @@ export default function ResourceDashboardPage() {
   const [upcoming, setUpcoming] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<string | null>(null);
-  const [dateFilter, setDateFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [reachModalOpen, setReachModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
   const [reachForm, setReachForm] = useState<Record<string, string>>({});
@@ -46,7 +47,7 @@ export default function ResourceDashboardPage() {
 
   useEffect(() => {
     if (userId) fetchTasks();
-  }, [userId, dateFilter]);
+  }, [userId, startDate, endDate]);
 
   async function fetchTasks() {
     setLoading(true);
@@ -56,14 +57,16 @@ export default function ResourceDashboardPage() {
       weekLater.setDate(weekLater.getDate() + 7);
 
       const params = new URLSearchParams({ assignedTo: userId });
-      if (dateFilter) {
-        params.set("month", String(new Date(dateFilter).getMonth() + 1));
-        params.set("year", String(new Date(dateFilter).getFullYear()));
-      }
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+
+      const adhocParams = new URLSearchParams({ assignedTo: userId });
+      if (startDate) adhocParams.set("startDate", startDate);
+      if (endDate) adhocParams.set("endDate", endDate);
 
       const [calRes, adhocRes] = await Promise.all([
         fetch(`/api/calendar?${params}`),
-        fetch(`/api/tasks?assignedTo=${userId}`),
+        fetch(`/api/tasks?${adhocParams}`),
       ]);
       const calData = await calRes.json();
       const adhocData = await adhocRes.json();
@@ -145,7 +148,9 @@ export default function ResourceDashboardPage() {
           </h1>
           <p className="text-gray-500 mt-1">Your assigned tasks and upcoming deadlines.</p>
         </div>
-        <Input type="month" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-48" />
+        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-44" placeholder="From" />
+        <span className="text-gray-400">to</span>
+        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-44" placeholder="To" />
       </div>
 
       {upcoming.length > 0 && (

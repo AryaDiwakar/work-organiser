@@ -45,6 +45,8 @@ export default function TasksPage() {
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [clientFilter, setClientFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<TaskForm>(defaultForm);
   const [saving, setSaving] = useState(false);
@@ -54,12 +56,14 @@ export default function TasksPage() {
     fetchTasks();
     fetchClients();
     fetchUsers();
-  }, [clientFilter]);
+  }, [clientFilter, startDate, endDate]);
 
   async function fetchTasks() {
     try {
       const params = new URLSearchParams();
       if (clientFilter) params.set("clientId", clientFilter);
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
       const res = await fetch(`/api/tasks?${params}`);
       const data = await res.json();
       setTasks(Array.isArray(data) ? data : data.data || []);
@@ -165,15 +169,20 @@ export default function TasksPage() {
         </Button>
       </div>
 
-      <div className="w-56">
-        <Select
-          options={[
-            { value: "", label: "All Clients" },
-            ...clients.map((c) => ({ value: c.id, label: c.name })),
-          ]}
-          value={clientFilter}
-          onChange={(e) => setClientFilter(e.target.value)}
-        />
+      <div className="flex items-center gap-4">
+        <div className="w-56">
+          <Select
+            options={[
+              { value: "", label: "All Clients" },
+              ...clients.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+          />
+        </div>
+        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-44" placeholder="From" />
+        <span className="text-gray-400">to</span>
+        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-44" placeholder="To" />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

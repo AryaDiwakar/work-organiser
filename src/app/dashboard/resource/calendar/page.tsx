@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { formatDate, getStatusLabel, getStatusColor, getSLAStatus } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
 
 interface CalendarEntry {
   id: string;
@@ -19,23 +20,21 @@ export default function ResourceCalendarPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
   const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (userId) fetchEntries();
-  }, [month, year, userId]);
+  }, [startDate, endDate, userId]);
 
   async function fetchEntries() {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        month: String(month),
-        year: String(year),
-        assignedTo: userId,
-      });
+      const params = new URLSearchParams({ assignedTo: userId });
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
       const res = await fetch(`/api/calendar?${params}`);
       const data = await res.json();
       setEntries(Array.isArray(data) ? data : data.data || []);
@@ -46,16 +45,6 @@ export default function ResourceCalendarPage() {
     }
   }
 
-  function prevMonth() {
-    if (month === 1) { setMonth(12); setYear(year - 1); }
-    else { setMonth(month - 1); }
-  }
-
-  function nextMonth() {
-    if (month === 12) { setMonth(1); setYear(year + 1); }
-    else { setMonth(month + 1); }
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -63,16 +52,10 @@ export default function ResourceCalendarPage() {
         <p className="text-gray-500 mt-1">View your assigned tasks by month.</p>
       </div>
 
-      <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2 w-fit">
-        <button onClick={prevMonth} className="text-gray-400 hover:text-gray-600">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">
-          {new Date(year, month - 1).toLocaleString("default", { month: "long", year: "numeric" })}
-        </span>
-        <button onClick={nextMonth} className="text-gray-400 hover:text-gray-600">
-          <ChevronRight className="h-4 w-4" />
-        </button>
+      <div className="flex items-center gap-4">
+        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-44" placeholder="From" />
+        <span className="text-gray-400">to</span>
+        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-44" placeholder="To" />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
+import { Plus, BarChart3 } from "lucide-react";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 const POST_TYPES = ["POSTER", "REEL", "VIDEO", "GIF", "CAROUSEL", "STORY", "STATIC"];
@@ -71,8 +71,9 @@ export default function CalendarPage() {
   const { data: session } = useSession();
   const isAdmin = isAdminRole(session?.user?.role as string);
   const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const [startDate, setStartDate] = useState(firstDay.toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(now.toISOString().split("T")[0]);
   const [clientFilter, setClientFilter] = useState("");
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
@@ -95,11 +96,13 @@ export default function CalendarPage() {
     fetchClients();
     fetchUsers();
     fetchCategories();
-  }, [month, year, clientFilter]);
+  }, [startDate, endDate, clientFilter]);
 
   async function fetchEntries() {
     try {
-      const params = new URLSearchParams({ month: String(month), year: String(year) });
+      const params = new URLSearchParams();
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
       if (clientFilter) params.set("clientId", clientFilter);
       const res = await fetch(`/api/calendar?${params}`);
       const data = await res.json();
@@ -297,16 +300,6 @@ export default function CalendarPage() {
     }));
   }
 
-  function prevMonth() {
-    if (month === 1) { setMonth(12); setYear(year - 1); }
-    else { setMonth(month - 1); }
-  }
-
-  function nextMonth() {
-    if (month === 12) { setMonth(1); setYear(year + 1); }
-    else { setMonth(month + 1); }
-  }
-
   const calendarFormFields = (
     <div className="space-y-4">
       <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Enter post title" />
@@ -372,17 +365,9 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
-          <button onClick={prevMonth} className="text-gray-400 hover:text-gray-600">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">
-            {new Date(year, month - 1).toLocaleString("default", { month: "long", year: "numeric" })}
-          </span>
-          <button onClick={nextMonth} className="text-gray-400 hover:text-gray-600">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-44" />
+        <span className="text-gray-400">to</span>
+        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-44" />
         <div className="w-56">
           <Select
             options={[
