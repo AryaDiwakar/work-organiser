@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -51,8 +52,16 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Work Organiser</h1>
-            <p className="text-gray-500 mt-2">Sign in to your account</p>
+            <Image
+              src="/godigitell-logo.png"
+              alt="GoDigitell"
+              width={180}
+              height={60}
+              className="mx-auto mb-4"
+              priority
+            />
+            <h1 className="text-2xl font-bold text-gray-900">Work Organiser</h1>
+            <p className="text-gray-500 mt-1">Sign in to your account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -84,13 +93,6 @@ export default function LoginPage() {
               Sign In
             </Button>
           </form>
-
-          <p className="text-center text-sm text-gray-500 mt-6">
-            Don&apos;t have an account?{" "}
-            <a href="/register" className="text-indigo-600 hover:text-indigo-500 font-medium">
-              Register
-            </a>
-          </p>
         </div>
       </div>
     </div>
