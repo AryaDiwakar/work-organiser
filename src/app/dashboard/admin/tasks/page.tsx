@@ -94,6 +94,7 @@ export default function TasksPage() {
   function openAddModal() {
     setForm(defaultForm);
     setModalOpen(true);
+    setError("");
   }
 
   async function handleSave() {
@@ -247,6 +248,7 @@ export default function TasksPage() {
           <Input label="Title" id="taskTitle" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           <Select
             label="Client"
+            placeholder="Select a client"
             options={clients.map((c) => ({ value: c.id, label: c.name }))}
             value={form.clientId}
             onChange={(e) => setForm({ ...form, clientId: e.target.value })}
