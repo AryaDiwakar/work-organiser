@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, Edit2, Power, PowerOff } from "lucide-react";
+import Link from "next/link";
+import { Plus, Edit2, Power, PowerOff, ExternalLink } from "lucide-react";
 
 interface Resource {
   id: string;
@@ -149,7 +150,8 @@ export default function ResourcesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
-                <th className="px-5 py-3 font-medium">Name</th>
+                    <th className="px-5 py-3 font-medium">Name</th>
+                    <th className="px-5 py-3 font-medium">Activity</th>
                 <th className="px-5 py-3 font-medium">Email</th>
                 <th className="px-5 py-3 font-medium">Role</th>
                 <th className="px-5 py-3 font-medium">Status</th>
@@ -162,6 +164,13 @@ export default function ResourcesPage() {
                 resources.map((resource) => (
                   <tr key={resource.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{resource.name}</td>
+                    <td className="px-5 py-3">
+                      <Link href={`/dashboard/admin/resources/${resource.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </td>
                     <td className="px-5 py-3 text-gray-600">{resource.email}</td>
                     <td className="px-5 py-3">
                       <Badge variant={
@@ -194,7 +203,7 @@ export default function ResourcesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={7} className="px-5 py-8 text-center text-gray-400">
                     No resources found.
                   </td>
                 </tr>
