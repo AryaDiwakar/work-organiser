@@ -1,13 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, isAdminRole } from "@/lib/utils";
+import { formatDate, formatDuration, isAdminRole } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface Task {
@@ -53,12 +53,23 @@ export default function TasksPage() {
   const [form, setForm] = useState<TaskForm>(defaultForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchTasks();
     fetchClients();
     fetchUsers();
   }, [clientFilter, resourceFilter, startDate, endDate]);
+
+  useEffect(() => {
+    if (tasks.length) {
+      const ids = tasks.map((t) => t.id).join(",");
+      fetch(`/api/time-tracker?taskType=ADHOC&taskIds=${ids}`)
+        .then((r) => r.json())
+        .then((data) => setTimerTotals(data || {}))
+        .catch(() => {});
+    }
+  }, [tasks.length]);
 
   async function fetchTasks() {
     try {
@@ -146,6 +157,16 @@ export default function TasksPage() {
       fetchTasks();
     } catch (error) {
       console.error("Failed to update status:", error);
+    }
+  }
+
+  async function handleDelete(taskId: string) {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (res.ok) fetchTasks();
+    } catch (error) {
+      console.error("Failed to delete task:", error);
     }
   }
 
@@ -239,13 +260,14 @@ export default function TasksPage() {
                 <th className="px-5 py-3 font-medium">Assigned To</th>
                 <th className="px-5 py-3 font-medium">Deadline</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium">Time</th>
                 <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center">
+                  <td colSpan={7} className="px-5 py-8 text-center">
                     <div className="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto" />
                   </td>
                 </tr>
@@ -273,20 +295,32 @@ export default function TasksPage() {
                         </Badge>
                       )}
                     </td>
+                    <td className="px-5 py-3 text-xs text-gray-500 font-mono">
+                      {formatDuration(timerTotals[task.id] || 0)}
+                    </td>
                     <td className="px-5 py-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStatusChange(task.id, "COMPLETED")}
-                      >
-                        Complete
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleStatusChange(task.id, "COMPLETED")}
+                        >
+                          Complete
+                        </Button>
+                        <button
+                          onClick={() => handleDelete(task.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                          title="Delete task"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={7} className="px-5 py-8 text-center text-gray-400">
                     No tasks found. Click &quot;Add Task&quot; to create one.
                   </td>
                 </tr>

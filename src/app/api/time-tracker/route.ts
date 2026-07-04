@@ -13,6 +13,25 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const taskType = searchParams.get("taskType");
     const taskId = searchParams.get("taskId");
+    const taskIds = searchParams.get("taskIds");
+
+    if (taskType && taskIds) {
+      const idList = taskIds.split(",").filter(Boolean);
+      const timers = await prisma.taskTimer.findMany({
+        where: { taskType, taskId: { in: idList } },
+      });
+      const totals: Record<string, number> = {};
+      for (const t of timers) {
+        if (t.endTime) {
+          totals[t.taskId] = (totals[t.taskId] || 0) + Math.floor((t.endTime.getTime() - t.startTime.getTime()) / 1000);
+        }
+      }
+      const activeTimers = timers.filter((t) => !t.endTime);
+      for (const a of activeTimers) {
+        totals[a.taskId] = (totals[a.taskId] || 0) + Math.floor((Date.now() - a.startTime.getTime()) / 1000);
+      }
+      return NextResponse.json(totals);
+    }
 
     if (taskType && taskId) {
       const userId = searchParams.get("userId") || (session.user as { id: string }).id;

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole } from "@/lib/utils";
+import { formatDate, formatDuration, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -92,6 +92,7 @@ export default function CalendarPage() {
   const [reachEntry, setReachEntry] = useState<CalendarEntry | null>(null);
   const [reachForm, setReachForm] = useState<Record<string, string>>({});
   const [savingReach, setSavingReach] = useState(false);
+  const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchEntries();
@@ -99,6 +100,16 @@ export default function CalendarPage() {
     fetchUsers();
     fetchCategories();
   }, [startDate, endDate, clientFilter, resourceFilter]);
+
+  useEffect(() => {
+    if (entries.length) {
+      const ids = entries.map((e) => e.id).join(",");
+      fetch(`/api/time-tracker?taskType=CALENDAR&taskIds=${ids}`)
+        .then((r) => r.json())
+        .then((data) => setTimerTotals(data || {}))
+        .catch(() => {});
+    }
+  }, [entries.length]);
 
   async function fetchEntries() {
     try {
@@ -469,6 +480,7 @@ export default function CalendarPage() {
                 <th className="px-4 py-3 font-medium">Assigned To</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">SLA</th>
+                <th className="px-4 py-3 font-medium">Time</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -519,6 +531,9 @@ export default function CalendarPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-lg">{sla.color}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500 font-mono">
+                        {formatDuration(timerTotals[entry.id] || 0)}
+                      </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           {entry.status === "POSTED" && (

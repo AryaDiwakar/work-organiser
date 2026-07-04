@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole, formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -9,19 +9,6 @@ import { Modal } from "@/components/ui/Modal";
 import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3, ClipboardList, Trash2, Play, Pause, Square } from "lucide-react";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
-
-interface TimerEntry {
-  id: string;
-  startTime: string;
-  endTime: string | null;
-}
-
-interface TimerState {
-  taskType: string;
-  taskId: string;
-  startTime: string;
-  elapsed: number;
-}
 
 interface CalendarEntry {
   id: string;
@@ -41,21 +28,11 @@ interface AdhocTask {
   client: { id: string; name: string } | null;
 }
 
-function calcElapsed(entries: TimerEntry[]): number {
-  let total = 0;
-  for (const e of entries) {
-    const start = new Date(e.startTime).getTime();
-    const end = e.endTime ? new Date(e.endTime).getTime() : Date.now();
-    total += Math.floor((end - start) / 1000);
-  }
-  return total;
-}
-
 export default function ResourceDashboardPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
   const role = (session?.user as any)?.role;
-  const isAdmin = isAdminRole(role);
+  const isAdminUser = isAdminRole(role);
   const [tasks, setTasks] = useState<CalendarEntry[]>([]);
   const [adhocTasks, setAdhocTasks] = useState<AdhocTask[]>([]);
   const [upcoming, setUpcoming] = useState<CalendarEntry[]>([]);
@@ -67,9 +44,9 @@ export default function ResourceDashboardPage() {
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
   const [reachForm, setReachForm] = useState<Record<string, string>>({});
   const [savingReach, setSavingReach] = useState(false);
-  const [activeTimer, setActiveTimer] = useState<TimerState | null>(null);
-  const [timerElapsed, setTimerElapsed] = useState<Record<string, number>>({});
-  const [tick, setTick] = useState(0);
+  const [activeTimer, setActiveTimer] = useState<{ taskType: string; taskId: string; startTime: string } | null>(null);
+  const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     if (userId) fetchTasks();
@@ -80,20 +57,22 @@ export default function ResourceDashboardPage() {
   }, [userId]);
 
   useEffect(() => {
-    if (activeTimer) {
-      const interval = setInterval(() => setTick((t) => t + 1), 1000);
-      return () => clearInterval(interval);
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if ((tasks.length || adhocTasks.length) && userId) {
+      fetchAllTimerTotals();
     }
-  }, [activeTimer]);
+  }, [tasks.length, adhocTasks.length, userId]);
 
   async function fetchActiveTimer() {
     try {
       const res = await fetch("/api/time-tracker");
       const data = await res.json();
       if (data?.active) {
-        const a = data.active;
-        const elapsed = calcElapsed([a]);
-        setActiveTimer({ taskType: a.taskType, taskId: a.taskId, startTime: a.startTime, elapsed });
+        setActiveTimer({ taskType: data.active.taskType, taskId: data.active.taskId, startTime: data.active.startTime });
       } else {
         setActiveTimer(null);
       }
@@ -102,34 +81,32 @@ export default function ResourceDashboardPage() {
     }
   }
 
-  async function fetchTaskTimes(taskType: string, taskIds: string[]) {
-    if (!taskIds.length) return;
+  async function fetchAllTimerTotals() {
     try {
-      const entries = await Promise.all(
-        taskIds.map(async (taskId) => {
+      const allIds = [
+        ...tasks.map((t) => ({ taskType: "CALENDAR" as const, taskId: t.id })),
+        ...adhocTasks.map((t) => ({ taskType: "ADHOC" as const, taskId: t.id })),
+      ];
+      if (!allIds.length) return;
+      const results = await Promise.all(
+        allIds.map(async ({ taskType, taskId }) => {
           const res = await fetch(`/api/time-tracker?taskType=${taskType}&taskId=${taskId}`);
           const data = await res.json();
-          return { taskId, elapsed: Array.isArray(data) ? calcElapsed(data) : 0 };
+          const entries: any[] = Array.isArray(data) ? data : [];
+          let completed = 0;
+          for (const e of entries) {
+            if (e.endTime) {
+              completed += Math.floor((new Date(e.endTime).getTime() - new Date(e.startTime).getTime()) / 1000);
+            }
+          }
+          return { key: `${taskType}_${taskId}`, completed };
         })
       );
-      setTimerElapsed((prev) => {
-        const next = { ...prev };
-        entries.forEach((e) => { next[`${taskType}_${e.taskId}`] = e.elapsed; });
-        return next;
-      });
+      setTimerTotals(Object.fromEntries(results.map((r) => [r.key, r.completed])));
     } catch (error) {
-      console.error("Failed to fetch task times:", error);
+      console.error("Failed to fetch timer totals:", error);
     }
   }
-
-  useEffect(() => {
-    if (tasks.length || adhocTasks.length) {
-      const calIds = tasks.map((t) => t.id);
-      const adhocIds = adhocTasks.map((t) => t.id);
-      fetchTaskTimes("CALENDAR", calIds);
-      fetchTaskTimes("ADHOC", adhocIds);
-    }
-  }, [tasks.length, adhocTasks.length, tick]);
 
   async function fetchTasks() {
     setLoading(true);
@@ -249,16 +226,9 @@ export default function ResourceDashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, taskType, taskId }),
       });
-      fetchActiveTimer();
-      const key = `${taskType}_${taskId}`;
-      if (action === "stop") {
-        setTimerElapsed((prev) => ({ ...prev, [key]: 0 }));
-        const res = await fetch(`/api/time-tracker?taskType=${taskType}&taskId=${taskId}`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setTimerElapsed((prev) => ({ ...prev, [key]: calcElapsed(data) }));
-        }
-      }
+      await fetchActiveTimer();
+      await fetchAllTimerTotals();
+      setNow(Date.now());
     } catch (error) {
       console.error("Failed to handle timer action:", error);
     }
@@ -270,12 +240,12 @@ export default function ResourceDashboardPage() {
 
   function getTimerElapsed(taskType: string, taskId: string) {
     const key = `${taskType}_${taskId}`;
-    if (isTimerRunning(taskType, taskId)) {
-      const base = timerElapsed[key] || 0;
-      const running = activeTimer ? Math.floor((Date.now() - new Date(activeTimer.startTime).getTime()) / 1000) : 0;
-      return base + running;
+    const completed = timerTotals[key] || 0;
+    if (isTimerRunning(taskType, taskId) && activeTimer) {
+      const running = Math.floor((now - new Date(activeTimer.startTime).getTime()) / 1000);
+      return completed + running;
     }
-    return timerElapsed[key] || 0;
+    return completed;
   }
 
   function canMarkComplete(status: string) {
@@ -393,13 +363,15 @@ export default function ResourceDashboardPage() {
                             <Play className="h-4 w-4" />
                           </button>
                         )}
-                        <button
-                          onClick={() => handleDeleteTask(t.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
-                          title="Delete task"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {isAdminUser && (
+                          <button
+                            onClick={() => handleDeleteTask(t.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                            title="Delete task"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -493,7 +465,7 @@ export default function ResourceDashboardPage() {
                               <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
-                          {entry.status === "POSTED" && isAdmin && (
+                          {entry.status === "POSTED" && isAdminUser && (
                             <Button size="sm" variant="outline" onClick={() => openReachModal(entry)}>
                               <BarChart3 className="h-4 w-4" />
                             </Button>
