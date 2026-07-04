@@ -452,13 +452,17 @@ export default function ClientDetailPage() {
                       <p className="text-sm text-gray-500">Total Posts</p>
                       <p className="text-2xl font-bold text-gray-900">{report.totalPosts || 0}</p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
-                      <p className="text-sm text-gray-500">Posted</p>
-                      <p className="text-2xl font-bold text-green-600">{report.postedCount || 0}</p>
-                    </div>
+                    {report.statusDistribution?.filter((s: any) => s.status === "POSTED").map((s: any) => (
+                      <div key="posted" className="bg-gray-50 rounded-lg p-4 text-center">
+                        <p className="text-sm text-gray-500">Posted</p>
+                        <p className="text-2xl font-bold text-green-600">{s.count || 0}</p>
+                      </div>
+                    ))}
                     <div className="bg-gray-50 rounded-lg p-4 text-center">
                       <p className="text-sm text-gray-500">Pending</p>
-                      <p className="text-2xl font-bold text-yellow-600">{report.pendingCount || 0}</p>
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {(report.totalPosts || 0) - (report.statusDistribution?.find((s: any) => s.status === "POSTED")?.count || 0)}
+                      </p>
                     </div>
                   </div>
                   {report.statusDistribution && report.statusDistribution.length > 0 && (
