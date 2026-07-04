@@ -1,16 +1,37 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { formatDate, formatDateTime, getStatusLabel, getStatusColor } from "@/lib/utils";
+import { useSession } from "next-auth/react";
+import { formatDate, formatDateTime, getStatusLabel, getStatusColor, isAdminRole } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Calendar, ClipboardList, BarChart3, Plus } from "lucide-react";
+import { Calendar, ClipboardList, BarChart3, Plus, Trash2 } from "lucide-react";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 const POST_TYPES = ["POSTER", "REEL", "VIDEO", "GIF", "CAROUSEL", "STORY", "STATIC"];
+
+const CALENDAR_STATUS_OPTIONS = [
+  { value: "YET_TO_BE_DONE", label: "Yet to be done" },
+  { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGNED", label: "Designed" },
+  { value: "SHARED_TO_CLIENT", label: "Shared to client" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+  { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "SCHEDULED", label: "Scheduled" },
+  { value: "POSTED", label: "Posted" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
+const TASK_STATUS_OPTIONS = [
+  { value: "NEW", label: "New" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "NOT_APPLICABLE", label: "Not Applicable" },
+];
 
 type Tab = "calendar" | "tasks" | "reports";
 
@@ -38,6 +59,8 @@ const defaultForm: CalendarForm = {
 export default function ClientDetailPage() {
   const params = useParams();
   const id = params?.id as string;
+  const { data: session } = useSession();
+  const isAdmin = isAdminRole(session?.user?.role as string);
   const [activeTab, setActiveTab] = useState<Tab>("calendar");
   const [client, setClient] = useState<any>(null);
   const [calendarEntries, setCalendarEntries] = useState<any[]>([]);
@@ -140,6 +163,50 @@ export default function ClientDetailPage() {
       console.error("Failed to create entry:", error);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (res.ok) fetchAll();
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+    }
+  }
+
+  async function handleCalendarStatusChange(entryId: string, newStatus: string) {
+    try {
+      const res = await fetch(`/api/calendar/${entryId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        fetchAll();
+      } else {
+        const errData = await res.json();
+        setError(errData.error || "Failed to update status");
+      }
+    } catch (error) {
+      setError("Network error");
+      console.error("Failed to update status:", error);
+    }
+  }
+
+  async function handleTaskStatusChange(taskId: string, newStatus: string) {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        fetchAll();
+      }
+    } catch (error) {
+      console.error("Failed to update task status:", error);
     }
   }
 
@@ -291,9 +358,21 @@ export default function ClientDetailPage() {
                         <td className="px-4 py-3 text-gray-600">{entry.postType}</td>
                         <td className="px-4 py-3 text-gray-600">{formatDate(entry.postingDate)}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(entry.status)}`}>
-                            {getStatusLabel(entry.status)}
-                          </span>
+                          {isAdmin ? (
+                            <select
+                              value={entry.status}
+                              onChange={(e) => handleCalendarStatusChange(entry.id, e.target.value)}
+                              className="block w-full rounded-lg border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            >
+                              {CALENDAR_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(entry.status)}`}>
+                              {getStatusLabel(entry.status)}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -316,6 +395,7 @@ export default function ClientDetailPage() {
                     <th className="px-4 py-3 font-medium">Assigned To</th>
                     <th className="px-4 py-3 font-medium">Deadline</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -326,9 +406,30 @@ export default function ClientDetailPage() {
                         <td className="px-4 py-3 text-gray-600">{task.assignedUser?.name || "Unassigned"}</td>
                         <td className="px-4 py-3 text-gray-600">{task.deadline ? formatDate(task.deadline) : "-"}</td>
                         <td className="px-4 py-3">
-                          <Badge variant={task.status === "COMPLETED" ? "success" : task.status === "IN_PROGRESS" ? "info" : task.status === "NEW" ? "warning" : "default"}>
-                            {task.status.replace(/_/g, " ")}
-                          </Badge>
+                          {isAdmin ? (
+                            <select
+                              value={task.status}
+                              onChange={(e) => handleTaskStatusChange(task.id, e.target.value)}
+                              className="block w-full rounded-lg border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            >
+                              {TASK_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Badge variant={task.status === "COMPLETED" ? "success" : task.status === "IN_PROGRESS" ? "info" : task.status === "NEW" ? "warning" : "default"}>
+                              {task.status.replace(/_/g, " ")}
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleDeleteTask(task.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                            title="Delete task"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </td>
                       </tr>
                     ))
