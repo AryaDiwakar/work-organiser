@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { formatDateTime, formatDuration } from "@/lib/utils";
+import { formatDateTime, formatDuration, formatDate, formatTime } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
@@ -13,6 +13,7 @@ export default function ResourceActivityPage() {
   const userId = params?.id as string;
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [entries, setEntries] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
@@ -33,6 +34,7 @@ export default function ResourceActivityPage() {
       const data = await res.json();
       setUser(data.user);
       setEntries(data.entries || []);
+      setAttendance(data.attendance || []);
     } catch (error) {
       console.error("Failed to fetch activity:", error);
     } finally {
@@ -95,7 +97,7 @@ export default function ResourceActivityPage() {
         <Button onClick={fetchActivity} isLoading={loading}>Filter</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <p className="text-sm text-gray-500">Total Time Tracked</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{formatDuration(totalSeconds)}</p>
@@ -107,6 +109,10 @@ export default function ResourceActivityPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <p className="text-sm text-gray-500">Adhoc Tasks</p>
           <p className="text-2xl font-bold text-amber-600 mt-1">{adhocGrouped.length} tasks</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <p className="text-sm text-gray-500">Days Present</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{attendance.filter((a) => a.status === "present").length} / {attendance.length}</p>
         </div>
       </div>
 
@@ -175,6 +181,43 @@ export default function ResourceActivityPage() {
                         <td className="px-4 py-3 text-gray-600">{g.clientName}</td>
                         <td className="px-4 py-3 text-gray-600">{g.count}</td>
                         <td className="px-4 py-3 font-mono text-sm">{formatDuration(g.seconds)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {attendance.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-4 border-b border-gray-200 flex items-center gap-2">
+                <Clock className="h-5 w-5 text-indigo-600" />
+                <h2 className="font-semibold text-gray-900">Check In / Check Out</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-left text-gray-500">
+                      <th className="px-4 py-3 font-medium">Date</th>
+                      <th className="px-4 py-3 font-medium">Check In</th>
+                      <th className="px-4 py-3 font-medium">Check Out</th>
+                      <th className="px-4 py-3 font-medium">Hours</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {attendance.map((a) => (
+                      <tr key={a.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-900">{formatDate(a.date)}</td>
+                        <td className="px-4 py-3 text-gray-600">{a.loginTime ? formatTime(a.loginTime) : "-"}</td>
+                        <td className="px-4 py-3 text-gray-600">{a.logoutTime ? formatTime(a.logoutTime) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-sm">{a.hoursWorked ? `${a.hoursWorked.toFixed(1)}h` : "-"}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant={a.status === "present" ? "success" : a.status === "leave" ? "warning" : "danger"}>
+                            {a.status}
+                          </Badge>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

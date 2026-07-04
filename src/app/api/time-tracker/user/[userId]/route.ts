@@ -20,22 +20,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ userId: 
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    const where: Record<string, unknown> = { userId };
-
-    if (startDate || endDate) {
-      const startTimeFilter: Record<string, Date> = {};
-      if (startDate) startTimeFilter.gte = new Date(startDate);
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        startTimeFilter.lte = end;
-      }
-      where.startTime = startTimeFilter;
+    const dateFilter: Record<string, Date> = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.lte = end;
     }
 
+    const whereTimer: Record<string, unknown> = { userId };
+    if (Object.keys(dateFilter).length) whereTimer.startTime = dateFilter;
+
     const entries = await prisma.taskTimer.findMany({
-      where,
+      where: whereTimer,
       orderBy: { startTime: "desc" },
+    });
+
+    const attendanceWhere: Record<string, unknown> = { userId };
+    if (Object.keys(dateFilter).length) attendanceWhere.date = dateFilter;
+
+    const attendance = await prisma.attendance.findMany({
+      where: attendanceWhere,
+      orderBy: { date: "asc" },
     });
 
     const taskIds = [...new Set(entries.map((e) => e.taskId))];
@@ -82,7 +88,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ userId: 
       select: { id: true, name: true, email: true, role: true },
     });
 
-    return NextResponse.json({ user, entries: entriesWithTask });
+    return NextResponse.json({ user, entries: entriesWithTask, attendance });
   } catch (error) {
     console.error("Failed to fetch user timer data:", error);
     return NextResponse.json({ error: "Failed to fetch user timer data" }, { status: 500 });
