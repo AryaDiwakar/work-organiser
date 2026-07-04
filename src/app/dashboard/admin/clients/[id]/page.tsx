@@ -447,33 +447,32 @@ export default function ClientDetailPage() {
             <div>
               {report ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
-                      <p className="text-sm text-gray-500">Total Posts</p>
-                      <p className="text-2xl font-bold text-gray-900">{report.totalPosts || 0}</p>
-                    </div>
-                    {report.statusDistribution?.filter((s: any) => s.status === "POSTED").map((s: any) => (
-                      <div key="posted" className="bg-gray-50 rounded-lg p-4 text-center">
-                        <p className="text-sm text-gray-500">Posted</p>
-                        <p className="text-2xl font-bold text-green-600">{s.count || 0}</p>
-                      </div>
-                    ))}
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
-                      <p className="text-sm text-gray-500">Pending</p>
-                      <p className="text-2xl font-bold text-yellow-600">
-                        {(report.totalPosts || 0) - (report.statusDistribution?.find((s: any) => s.status === "POSTED")?.count || 0)}
-                      </p>
-                    </div>
-                  </div>
-                  {report.statusDistribution && report.statusDistribution.length > 0 && (
-                    <div className="mt-4">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2">Status Breakdown</h3>
-                      {report.statusDistribution.map((s: any) => (
-                        <div key={s.status} className="flex items-center justify-between py-1 text-sm">
-                          <span className="text-gray-600">{getStatusLabel(s.status)}</span>
-                          <span className="font-medium">{s.count}</span>
+                  {report.platformBreakdown?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">Platform Breakdown</h3>
+                      {report.platformBreakdown.map((p: any) => (
+                        <div key={p.platform} className="flex items-center justify-between py-1 text-sm">
+                          <span className="text-gray-600">{p.platform}</span>
+                          <span className="font-medium">{p.count}</span>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {report.categoryPerformance?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">Category Performance</h3>
+                      {report.categoryPerformance.map((c: any) => (
+                        <div key={c.categoryId} className="flex items-center justify-between py-1 text-sm">
+                          <span className="text-gray-600">{c.categoryName}</span>
+                          <span className="font-medium">{c.count} posts</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {report.engagement?.reach > 0 && (
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-500">Total Engagement Reach</p>
+                      <p className="text-2xl font-bold text-indigo-600">{report.engagement.reach}</p>
                     </div>
                   )}
                 </div>
