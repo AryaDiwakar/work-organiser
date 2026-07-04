@@ -149,16 +149,16 @@ export default function ResourceAttendancePage() {
         </div>
         <div className="flex items-center gap-3">
           {todayRecord?.loginTime && todayRecord?.logoutTime ? (
-            <Badge variant="success">Logged out today</Badge>
+            <Badge variant="success">Checked out today</Badge>
           ) : isLoggedIn ? (
             <Button onClick={handleLogout} isLoading={loggingOut} variant="danger">
               <LogOut className="h-4 w-4 mr-2" />
-              Logout
+              Check Out
             </Button>
           ) : (
             <Button onClick={handleLogin} isLoading={loggingIn}>
               <LogIn className="h-4 w-4 mr-2" />
-              Login
+              Check In
             </Button>
           )}
           <Button variant="outline" onClick={() => setLeaveModalOpen(true)}>
@@ -176,11 +176,11 @@ export default function ResourceAttendancePage() {
           </div>
           <div className="flex items-center gap-6 text-sm">
             <div>
-              <span className="text-indigo-600">Login: </span>
+              <span className="text-indigo-600">Check In: </span>
               <span className="font-medium">{todayRecord.loginTime ? formatDateTime(new Date(todayRecord.loginTime)) : "-"}</span>
             </div>
             <div>
-              <span className="text-indigo-600">Logout: </span>
+              <span className="text-indigo-600">Check Out: </span>
               <span className="font-medium">{todayRecord.logoutTime ? formatDateTime(new Date(todayRecord.logoutTime)) : "Not yet"}</span>
             </div>
             {todayRecord.hoursWorked && (
@@ -252,8 +252,8 @@ export default function ResourceAttendancePage() {
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
                 <th className="px-5 py-3 font-medium">Date</th>
-                <th className="px-5 py-3 font-medium">Login Time</th>
-                <th className="px-5 py-3 font-medium">Logout Time</th>
+                <th className="px-5 py-3 font-medium">Check In</th>
+                <th className="px-5 py-3 font-medium">Check Out</th>
                 <th className="px-5 py-3 font-medium">Hours Worked</th>
                 <th className="px-5 py-3 font-medium">Status</th>
               </tr>
