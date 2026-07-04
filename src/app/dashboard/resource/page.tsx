@@ -1,14 +1,27 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole } from "@/lib/utils";
+import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole, formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3, ClipboardList } from "lucide-react";
+import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3, ClipboardList, Trash2, Play, Pause, Square } from "lucide-react";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
+
+interface TimerEntry {
+  id: string;
+  startTime: string;
+  endTime: string | null;
+}
+
+interface TimerState {
+  taskType: string;
+  taskId: string;
+  startTime: string;
+  elapsed: number;
+}
 
 interface CalendarEntry {
   id: string;
@@ -28,6 +41,16 @@ interface AdhocTask {
   client: { id: string; name: string } | null;
 }
 
+function calcElapsed(entries: TimerEntry[]): number {
+  let total = 0;
+  for (const e of entries) {
+    const start = new Date(e.startTime).getTime();
+    const end = e.endTime ? new Date(e.endTime).getTime() : Date.now();
+    total += Math.floor((end - start) / 1000);
+  }
+  return total;
+}
+
 export default function ResourceDashboardPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
@@ -44,10 +67,69 @@ export default function ResourceDashboardPage() {
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
   const [reachForm, setReachForm] = useState<Record<string, string>>({});
   const [savingReach, setSavingReach] = useState(false);
+  const [activeTimer, setActiveTimer] = useState<TimerState | null>(null);
+  const [timerElapsed, setTimerElapsed] = useState<Record<string, number>>({});
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (userId) fetchTasks();
   }, [userId, startDate, endDate]);
+
+  useEffect(() => {
+    if (userId) fetchActiveTimer();
+  }, [userId]);
+
+  useEffect(() => {
+    if (activeTimer) {
+      const interval = setInterval(() => setTick((t) => t + 1), 1000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTimer]);
+
+  async function fetchActiveTimer() {
+    try {
+      const res = await fetch("/api/time-tracker");
+      const data = await res.json();
+      if (data?.active) {
+        const a = data.active;
+        const elapsed = calcElapsed([a]);
+        setActiveTimer({ taskType: a.taskType, taskId: a.taskId, startTime: a.startTime, elapsed });
+      } else {
+        setActiveTimer(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch active timer:", error);
+    }
+  }
+
+  async function fetchTaskTimes(taskType: string, taskIds: string[]) {
+    if (!taskIds.length) return;
+    try {
+      const entries = await Promise.all(
+        taskIds.map(async (taskId) => {
+          const res = await fetch(`/api/time-tracker?taskType=${taskType}&taskId=${taskId}`);
+          const data = await res.json();
+          return { taskId, elapsed: Array.isArray(data) ? calcElapsed(data) : 0 };
+        })
+      );
+      setTimerElapsed((prev) => {
+        const next = { ...prev };
+        entries.forEach((e) => { next[`${taskType}_${e.taskId}`] = e.elapsed; });
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed to fetch task times:", error);
+    }
+  }
+
+  useEffect(() => {
+    if (tasks.length || adhocTasks.length) {
+      const calIds = tasks.map((t) => t.id);
+      const adhocIds = adhocTasks.map((t) => t.id);
+      fetchTaskTimes("CALENDAR", calIds);
+      fetchTaskTimes("ADHOC", adhocIds);
+    }
+  }, [tasks.length, adhocTasks.length, tick]);
 
   async function fetchTasks() {
     setLoading(true);
@@ -150,6 +232,52 @@ export default function ResourceDashboardPage() {
     }
   }
 
+  async function handleDeleteTask(taskId: string) {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (res.ok) fetchTasks();
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+    }
+  }
+
+  async function handleTimerAction(action: string, taskType: string, taskId: string) {
+    try {
+      await fetch("/api/time-tracker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, taskType, taskId }),
+      });
+      fetchActiveTimer();
+      const key = `${taskType}_${taskId}`;
+      if (action === "stop") {
+        setTimerElapsed((prev) => ({ ...prev, [key]: 0 }));
+        const res = await fetch(`/api/time-tracker?taskType=${taskType}&taskId=${taskId}`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setTimerElapsed((prev) => ({ ...prev, [key]: calcElapsed(data) }));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to handle timer action:", error);
+    }
+  }
+
+  function isTimerRunning(taskType: string, taskId: string) {
+    return activeTimer?.taskType === taskType && activeTimer?.taskId === taskId;
+  }
+
+  function getTimerElapsed(taskType: string, taskId: string) {
+    const key = `${taskType}_${taskId}`;
+    if (isTimerRunning(taskType, taskId)) {
+      const base = timerElapsed[key] || 0;
+      const running = activeTimer ? Math.floor((Date.now() - new Date(activeTimer.startTime).getTime()) / 1000) : 0;
+      return base + running;
+    }
+    return timerElapsed[key] || 0;
+  }
+
   function canMarkComplete(status: string) {
     return !["POSTED", "APPROVED", "SCHEDULED"].includes(status);
   }
@@ -214,15 +342,17 @@ export default function ResourceDashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 text-left text-gray-500">
-                  <th className="px-5 py-3 font-medium">Title</th>
-                  <th className="px-5 py-3 font-medium">Client</th>
-                  <th className="px-5 py-3 font-medium">Deadline</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                </tr>
+                  <tr className="bg-gray-50 text-left text-gray-500">
+                    <th className="px-5 py-3 font-medium">Title</th>
+                    <th className="px-5 py-3 font-medium">Client</th>
+                    <th className="px-5 py-3 font-medium">Deadline</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">Time</th>
+                    <th className="px-5 py-3 font-medium">Actions</th>
+                  </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {adhocTasks.map((t) => (
+                  {adhocTasks.map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{t.title}</td>
                     <td className="px-5 py-3 text-gray-600">{t.client?.name || "-"}</td>
@@ -231,6 +361,46 @@ export default function ResourceDashboardPage() {
                       <Badge variant={t.status === "COMPLETED" ? "success" : t.status === "IN_PROGRESS" ? "info" : t.status === "NEW" ? "warning" : "default"}>
                         {t.status.replace(/_/g, " ")}
                       </Badge>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-gray-500 font-mono">
+                      {formatDuration(getTimerElapsed("ADHOC", t.id))}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1">
+                        {isTimerRunning("ADHOC", t.id) ? (
+                          <>
+                            <button
+                              onClick={() => handleTimerAction("pause", "ADHOC", t.id)}
+                              className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="Pause"
+                            >
+                              <Pause className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleTimerAction("stop", "ADHOC", t.id)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Stop"
+                            >
+                              <Square className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleTimerAction("start", "ADHOC", t.id)}
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Start"
+                          >
+                            <Play className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteTask(t.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                          title="Delete task"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -257,6 +427,7 @@ export default function ResourceDashboardPage() {
                 <th className="px-5 py-3 font-medium">Posting Date</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">SLA</th>
+                <th className="px-5 py-3 font-medium">Time</th>
                 <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -286,18 +457,45 @@ export default function ResourceDashboardPage() {
                           {sla.color} {sla.label}
                         </span>
                       </td>
+                      <td className="px-5 py-3 text-xs text-gray-500 font-mono">
+                        {formatDuration(getTimerElapsed("CALENDAR", entry.id))}
+                      </td>
                       <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          {isTimerRunning("CALENDAR", entry.id) ? (
+                            <>
+                              <button
+                                onClick={() => handleTimerAction("pause", "CALENDAR", entry.id)}
+                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                title="Pause"
+                              >
+                                <Pause className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleTimerAction("stop", "CALENDAR", entry.id)}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Stop"
+                              >
+                                <Square className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleTimerAction("start", "CALENDAR", entry.id)}
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Start"
+                            >
+                              <Play className="h-4 w-4" />
+                            </button>
+                          )}
                           {canMarkComplete(entry.status) && (
                             <Button size="sm" variant="outline" isLoading={completing === entry.id} onClick={() => handleMarkComplete(entry.id)}>
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Complete
+                              <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
                           {entry.status === "POSTED" && isAdmin && (
                             <Button size="sm" variant="outline" onClick={() => openReachModal(entry)}>
-                              <BarChart3 className="h-4 w-4 mr-1" />
-                              Reach
+                              <BarChart3 className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
@@ -307,7 +505,7 @@ export default function ResourceDashboardPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={7} className="px-5 py-8 text-center text-gray-400">
                     <Clock className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                     No tasks assigned to you yet.
                   </td>
