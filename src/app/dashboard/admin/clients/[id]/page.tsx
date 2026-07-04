@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { formatDate, formatDateTime, getStatusLabel, getStatusColor, isAdminRole } from "@/lib/utils";
+import { formatDate, formatDateTime, formatDuration, getStatusLabel, getStatusColor, isAdminRole } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -73,6 +73,7 @@ export default function ClientDetailPage() {
   const [form, setForm] = useState<CalendarForm>(defaultForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (id) { fetchAll(); fetchUsers(); fetchCategories(); }
@@ -108,6 +109,23 @@ export default function ClientDetailPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (calendarEntries.length) {
+      const ids = calendarEntries.map((e) => e.id).join(",");
+      fetch(`/api/time-tracker?taskType=CALENDAR&taskIds=${ids}`)
+        .then((r) => r.json())
+        .then((data) => setTimerTotals((prev) => ({ ...prev, ...(data || {}) })))
+        .catch(() => {});
+    }
+    if (tasks.length) {
+      const ids = tasks.map((t) => t.id).join(",");
+      fetch(`/api/time-tracker?taskType=ADHOC&taskIds=${ids}`)
+        .then((r) => r.json())
+        .then((data) => setTimerTotals((prev) => ({ ...prev, ...(data || {}) })))
+        .catch(() => {});
+    }
+  }, [calendarEntries.length, tasks.length]);
 
   async function fetchUsers() {
     try {
@@ -347,6 +365,7 @@ export default function ClientDetailPage() {
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Posting Date</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Time</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -374,11 +393,14 @@ export default function ClientDetailPage() {
                             </span>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 font-mono">
+                          {formatDuration(timerTotals[entry.id] || 0)}
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-gray-400">No calendar entries found.</td>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-400">No calendar entries found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -395,6 +417,7 @@ export default function ClientDetailPage() {
                     <th className="px-4 py-3 font-medium">Assigned To</th>
                     <th className="px-4 py-3 font-medium">Deadline</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Time</th>
                     <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -422,6 +445,9 @@ export default function ClientDetailPage() {
                             </Badge>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 font-mono">
+                          {formatDuration(timerTotals[task.id] || 0)}
+                        </td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => handleDeleteTask(task.id)}
@@ -435,7 +461,7 @@ export default function ClientDetailPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-gray-400">No adhoc tasks found.</td>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-400">No adhoc tasks found.</td>
                     </tr>
                   )}
                 </tbody>
