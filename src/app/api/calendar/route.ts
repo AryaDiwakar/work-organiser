@@ -76,12 +76,14 @@ export async function POST(req: Request) {
       platforms: bodyPlatforms,
       postingDate,
       postingTime,
-      assignedTo,
-      creativeBrief,
+  assignedTo,
+  assignedTo: bodyAssignedTo,
+  assignedToMulti,
       caption,
       hashtags,
       designDirection,
       referenceLinks,
+      creativeBrief,
     } = body;
 
     if (!clientId || !categoryId || !title || !postingDate) {

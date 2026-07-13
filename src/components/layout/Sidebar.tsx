@@ -15,6 +15,9 @@ import {
   LogOut,
   Building2,
   CalendarCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Key,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 
@@ -28,6 +31,7 @@ const adminLinks = [
   { href: "/dashboard/admin/attendance", label: "Attendance", icon: Clock },
   { href: "/dashboard/admin/leaves", label: "Leaves", icon: CalendarCheck },
   { href: "/dashboard/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/dashboard/admin/credentials", label: "Credentials", icon: Key },
   { href: "/dashboard/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -37,7 +41,12 @@ const resourceLinks = [
   { href: "/dashboard/resource/attendance", label: "Attendance", icon: Clock },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = (session?.user as any)?.role;
@@ -49,11 +58,25 @@ export function Sidebar() {
     : resourceLinks;
 
   return (
-    <div className="flex h-full w-64 flex-col bg-gray-900 text-white">
-      <div className="flex h-16 items-center gap-2 px-4 border-b border-gray-700">
-        <Image src="/godigitell.png" alt="godigitell" width={28} height={28} className="rounded" />
-        <span className="text-base font-bold">godigitell</span>
+    <div className={cn("flex h-full flex-col bg-gray-900 text-white transition-all duration-300", collapsed ? "w-16" : "w-64")}>
+      <div className={cn("flex h-16 items-center border-b border-gray-700", collapsed ? "justify-center px-2" : "gap-2 px-4")}>
+        {!collapsed && (
+          <>
+            <Image src="/godigitell.png" alt="godigitell" width={28} height={28} className="rounded" />
+            <span className="text-base font-bold">godigitell</span>
+          </>
+        )}
+        {collapsed && (
+          <Image src="/godigitell.png" alt="godigitell" width={24} height={24} className="rounded" />
+        )}
       </div>
+      <button
+        onClick={onToggle}
+        className="mx-2 mt-2 flex items-center justify-center rounded-lg p-1.5 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+      </button>
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {links.map((link) => {
           const Icon = link.icon;
@@ -62,15 +85,17 @@ export function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
+              title={collapsed ? link.label : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                collapsed && "justify-center px-2",
                 isActive
                   ? "bg-indigo-600 text-white"
                   : "text-gray-300 hover:bg-gray-800 hover:text-white"
               )}
             >
-              <Icon className="h-5 w-5" />
-              {link.label}
+              <Icon className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>{link.label}</span>}
             </Link>
           );
         })}
@@ -78,10 +103,14 @@ export function Sidebar() {
       <div className="border-t border-gray-700 p-4">
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          title={collapsed ? "Sign Out" : undefined}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors",
+            collapsed && "justify-center px-2"
+          )}
         >
-          <LogOut className="h-5 w-5" />
-          Sign Out
+          <LogOut className="h-5 w-5 shrink-0" />
+          {!collapsed && <span>Sign Out</span>}
         </button>
       </div>
     </div>

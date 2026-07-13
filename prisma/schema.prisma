@@ -80,8 +80,9 @@ model Client {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  calendars   CalendarEntry[]
-  adhocTasks  AdhocTask[]
+  calendars    CalendarEntry[]
+  adhocTasks   AdhocTask[]
+  credentials  Credential[]
 }
 
 model Category {
@@ -140,9 +141,15 @@ model CalendarEntry {
   creationDate       DateTime  @default(now())
   approvalDeadline   DateTime?
   schedulingDeadline DateTime?
+  storyboardCompletedDate DateTime?
+  designedDate       DateTime?
+  sharedToClientDate DateTime?
   approvalDate       DateTime?
+  internalFeedbackDate DateTime?
+  clientFeedbackDate DateTime?
   schedulingDate     DateTime?
   postedDate         DateTime?
+  rejectedDate       DateTime?
 
   assignedTo   String?
   assignedUser User?     @relation("AssignedResource", fields: [assignedTo], references: [id])
@@ -198,6 +205,8 @@ model PerformanceEntry {
 enum AdhocStatus {
   NEW
   IN_PROGRESS
+  INTERNAL_FEEDBACK
+  CLIENT_FEEDBACK
   COMPLETED
   NOT_APPLICABLE
 }
@@ -263,4 +272,20 @@ model Leave {
 
   user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   approvedBy User? @relation("ApprovedBy", fields: [approvedById], references: [id])
+}
+
+model Credential {
+  id              String    @id @default(cuid())
+  clientId        String
+  credentialType  String
+  customType      String?
+  username        String
+  password        String
+  expiryDate      DateTime?
+  contactPerson   String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }

@@ -133,6 +133,7 @@ export default function ClientsPage() {
                 <th className="px-5 py-3 font-medium">Website</th>
                 <th className="px-5 py-3 font-medium">Project</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium">Created</th>
                 <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -175,7 +176,7 @@ export default function ClientsPage() {
                 ))
               ) : (
                 <tr>
-                    <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
                     No clients found. Click &quot;Add Client&quot; to create one.
                   </td>
                 </tr>

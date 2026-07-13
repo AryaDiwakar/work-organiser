@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, Download, Trash2 } from "lucide-react";
+import { Plus, Download, Trash2, Edit2, Eye } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface Task {
@@ -34,9 +34,44 @@ const defaultForm: TaskForm = { title: "", description: "", clientId: "", assign
 const TASK_STATUS_OPTIONS = [
   { value: "NEW", label: "New" },
   { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+  { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
   { value: "COMPLETED", label: "Completed" },
   { value: "NOT_APPLICABLE", label: "Not Applicable" },
 ];
+
+function getDeadlineColor(deadline: string | null): string {
+  if (!deadline) return "";
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const dl = new Date(deadline);
+  dl.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((dl.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "text-red-600 font-semibold";
+  if (diffDays <= 2) return "text-yellow-600 font-semibold";
+  return "text-green-600 font-semibold";
+}
+
+function sortByDeadline(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    if (!a.deadline && !b.deadline) return 0;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+  });
+}
+
+function getStatusBadgeVariant(status: string) {
+  switch (status) {
+    case "COMPLETED": return "success" as const;
+    case "IN_PROGRESS": return "info" as const;
+    case "INTERNAL_FEEDBACK": return "warning" as const;
+    case "CLIENT_FEEDBACK": return "danger" as const;
+    case "NEW": return "warning" as const;
+    case "NOT_APPLICABLE": return "default" as const;
+    default: return "default" as const;
+  }
+}
 
 export default function TasksPage() {
   const { data: session } = useSession();
@@ -50,6 +85,9 @@ export default function TasksPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewTask, setViewTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [form, setForm] = useState<TaskForm>(defaultForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -110,7 +148,26 @@ export default function TasksPage() {
   }
 
   function openAddModal() {
+    setEditingTask(null);
     setForm(defaultForm);
+    setModalOpen(true);
+    setError("");
+  }
+
+  function openViewModal(task: Task) {
+    setViewTask(task);
+    setViewModalOpen(true);
+  }
+
+  function openEditModal(task: Task) {
+    setEditingTask(task);
+    setForm({
+      title: task.title,
+      description: task.description || "",
+      clientId: task.client?.id || "",
+      assignedTo: task.assignedUser?.id || "",
+      deadline: task.deadline ? task.deadline.split("T")[0] : "",
+    });
     setModalOpen(true);
     setError("");
   }
@@ -123,8 +180,10 @@ export default function TasksPage() {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/tasks", {
-        method: "POST",
+      const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
+      const method = editingTask ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
@@ -137,11 +196,11 @@ export default function TasksPage() {
         fetchTasks();
       } else {
         const errData = await res.json();
-        setError(errData.error || "Failed to create task");
+        setError(errData.error || "Failed to save task");
       }
     } catch (error) {
       setError("Network error");
-      console.error("Failed to create task:", error);
+      console.error("Failed to save task:", error);
     } finally {
       setSaving(false);
     }
@@ -191,15 +250,7 @@ export default function TasksPage() {
     URL.revokeObjectURL(url);
   }
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "COMPLETED": return "success" as const;
-      case "IN_PROGRESS": return "info" as const;
-      case "NEW": return "warning" as const;
-      case "NOT_APPLICABLE": return "default" as const;
-      default: return "default" as const;
-    }
-  };
+  const sortedTasks = sortByDeadline(tasks);
 
   return (
     <div className="space-y-6">
@@ -271,15 +322,21 @@ export default function TasksPage() {
                     <div className="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto" />
                   </td>
                 </tr>
-              ) : tasks.length > 0 ? (
-                tasks.map((task) => (
+              ) : sortedTasks.length > 0 ? (
+                sortedTasks.map((task) => (
                   <tr key={task.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{task.title}</td>
                     <td className="px-5 py-3 text-gray-600">{task.client?.name || "-"}</td>
                     <td className="px-5 py-3 text-gray-600">{task.assignedUser?.name || "Unassigned"}</td>
-                    <td className="px-5 py-3 text-gray-600">{task.deadline ? formatDate(task.deadline) : "-"}</td>
+                    <td className={`px-5 py-3 ${getDeadlineColor(task.deadline)}`}>
+                      {task.deadline ? formatDate(task.deadline) : "-"}
+                    </td>
                     <td className="px-5 py-3">
-                      {isAdmin ? (
+                      {(task.status === "COMPLETED" || task.status === "NOT_APPLICABLE") ? (
+                        <Badge variant={getStatusBadgeVariant(task.status)}>
+                          {task.status.replace(/_/g, " ")}
+                        </Badge>
+                      ) : isAdmin ? (
                         <select
                           value={task.status}
                           onChange={(e) => handleStatusChange(task.id, e.target.value)}
@@ -300,13 +357,22 @@ export default function TasksPage() {
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleStatusChange(task.id, "COMPLETED")}
+                        <button
+                          onClick={() => openViewModal(task)}
+                          className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                          title="View task"
                         >
-                          Complete
-                        </Button>
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        {isAdmin && task.status !== "COMPLETED" && task.status !== "NOT_APPLICABLE" && (
+                          <button
+                            onClick={() => openEditModal(task)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
+                            title="Edit task"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDelete(task.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
@@ -330,7 +396,49 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Add Task" size="lg">
+      {/* View Task Modal */}
+      <Modal isOpen={viewModalOpen} onClose={() => setViewModalOpen(false)} title="Task Details" size="lg">
+        {viewTask && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Title</label>
+              <p className="text-gray-900 mt-1">{viewTask.title}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Client</label>
+              <p className="text-gray-900 mt-1">{viewTask.client?.name || "-"}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Assigned To</label>
+              <p className="text-gray-900 mt-1">{viewTask.assignedUser?.name || "Unassigned"}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Deadline</label>
+              <p className={`text-gray-900 mt-1 ${getDeadlineColor(viewTask.deadline)}`}>
+                {viewTask.deadline ? formatDate(viewTask.deadline) : "-"}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Status</label>
+              <div className="mt-1">
+                <Badge variant={getStatusBadgeVariant(viewTask.status)}>
+                  {viewTask.status.replace(/_/g, " ")}
+                </Badge>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Description</label>
+              <p className="text-gray-900 mt-1 whitespace-pre-wrap">{viewTask.description || "No description"}</p>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button variant="secondary" onClick={() => setViewModalOpen(false)}>Close</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Add / Edit Task Modal */}
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingTask ? "Edit Task" : "Add Task"} size="lg">
         <div className="space-y-4">
           <Input label="Title" id="taskTitle" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           <Select
@@ -360,7 +468,7 @@ export default function TasksPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} isLoading={saving}>Create</Button>
+            <Button onClick={handleSave} isLoading={saving}>{editingTask ? "Update" : "Create"}</Button>
           </div>
         </div>
       </Modal>

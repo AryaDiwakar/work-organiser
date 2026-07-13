@@ -39,11 +39,21 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (body.designDirection !== undefined) updateData.designDirection = body.designDirection;
     if (body.referenceLinks !== undefined) updateData.referenceLinks = body.referenceLinks;
     if (body.categoryId !== undefined) updateData.categoryId = body.categoryId;
-    if (body.status !== undefined) updateData.status = body.status;
-
-    if (body.status === "APPROVED") updateData.approvalDate = new Date();
-    if (body.status === "SCHEDULED") updateData.schedulingDate = new Date();
-    if (body.status === "POSTED") updateData.postedDate = new Date();
+    if (body.status !== undefined) {
+      updateData.status = body.status;
+      const now = new Date();
+      switch (body.status) {
+        case "STORYBOARD_COMPLETED": updateData.storyboardCompletedDate = now; break;
+        case "DESIGNED": updateData.designedDate = now; break;
+        case "SHARED_TO_CLIENT": updateData.sharedToClientDate = now; break;
+        case "APPROVED": updateData.approvalDate = now; break;
+        case "INTERNAL_FEEDBACK": updateData.internalFeedbackDate = now; break;
+        case "CLIENT_FEEDBACK": updateData.clientFeedbackDate = now; break;
+        case "SCHEDULED": updateData.schedulingDate = now; break;
+        case "POSTED": updateData.postedDate = now; break;
+        case "REJECTED": updateData.rejectedDate = now; break;
+      }
+    }
 
     const entry = await prisma.calendarEntry.update({
       where: { id: id },

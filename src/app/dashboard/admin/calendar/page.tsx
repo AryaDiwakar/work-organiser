@@ -43,6 +43,15 @@ interface CalendarEntry {
   assignedUser: { id: string; name: string } | null;
   status: string;
   slaStatus: string | null;
+  storyboardCompletedDate: string | null;
+  designedDate: string | null;
+  sharedToClientDate: string | null;
+  approvalDate: string | null;
+  internalFeedbackDate: string | null;
+  clientFeedbackDate: string | null;
+  schedulingDate: string | null;
+  postedDate: string | null;
+  rejectedDate: string | null;
 }
 
 interface CalendarForm {
@@ -59,14 +68,32 @@ interface CalendarForm {
   postingDate: string;
   postingTime: string;
   assignedTo: string;
+  assignedToMulti: string[];
 }
 
 const defaultForm: CalendarForm = {
   title: "", clientId: "", categoryId: "", postType: "POSTER",
   platforms: [], creativeBrief: "", caption: "", hashtags: "",
   designDirection: "", referenceLinks: "", postingDate: "", postingTime: "",
-  assignedTo: "",
+  assignedTo: "", assignedToMulti: [],
 };
+
+const POST_TYPES_MULTI_RESOURCE = ["REEL", "VIDEO"];
+
+function getStatusDate(entry: CalendarEntry): string | null {
+  switch (entry.status) {
+    case "STORYBOARD_COMPLETED": return entry.storyboardCompletedDate;
+    case "DESIGNED": return entry.designedDate;
+    case "SHARED_TO_CLIENT": return entry.sharedToClientDate;
+    case "APPROVED": return entry.approvalDate;
+    case "INTERNAL_FEEDBACK": return entry.internalFeedbackDate;
+    case "CLIENT_FEEDBACK": return entry.clientFeedbackDate;
+    case "SCHEDULED": return entry.schedulingDate;
+    case "POSTED": return entry.postedDate;
+    case "REJECTED": return entry.rejectedDate;
+    default: return null;
+  }
+}
 
 export default function CalendarPage() {
   const { data: session } = useSession();
@@ -79,7 +106,7 @@ export default function CalendarPage() {
   const [resourceFilter, setResourceFilter] = useState("");
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
-  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string; role?: string }[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -166,6 +193,17 @@ export default function CalendarPage() {
     setError("");
   }
 
+  const isMultiResource = POST_TYPES_MULTI_RESOURCE.includes(form.postType);
+
+  function toggleMultiResource(resourceId: string) {
+    setForm((prev) => ({
+      ...prev,
+      assignedToMulti: prev.assignedToMulti.includes(resourceId)
+        ? prev.assignedToMulti.filter((id) => id !== resourceId)
+        : [...prev.assignedToMulti, resourceId],
+    }));
+  }
+
   function openEditModal(entry: CalendarEntry) {
     setEditingEntry(entry);
     setForm({
@@ -182,6 +220,7 @@ export default function CalendarPage() {
       postingDate: entry.postingDate?.split("T")[0] || "",
       postingTime: entry.postingTime || "",
       assignedTo: entry.assignedUser?.id || "",
+      assignedToMulti: [],
     });
     setEditModalOpen(true);
     setError("");
@@ -195,6 +234,8 @@ export default function CalendarPage() {
         ...form,
         hashtags: form.hashtags?.split(",").map((h: string) => h.trim()).filter(Boolean) || [],
         referenceLinks: form.referenceLinks?.split("\n").map((r: string) => r.trim()).filter(Boolean) || [],
+        assignedTo: undefined as string | undefined,
+        assignedToMulti: isMultiResource ? form.assignedToMulti : [],
       };
       const res = await fetch("/api/calendar", {
         method: "POST",
@@ -341,6 +382,7 @@ export default function CalendarPage() {
       "Posting Time": e.postingTime || "-",
       "Assigned To": e.assignedUser?.name || "-",
       Status: getStatusLabel(e.status),
+      "Marked Date": getStatusDate(e) ? formatDate(getStatusDate(e)!) : "-",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -377,7 +419,29 @@ export default function CalendarPage() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Input label="Posting Date" type="date" value={form.postingDate} onChange={(e) => setForm({ ...form, postingDate: e.target.value })} required />
-        <Select label="Assigned To" options={[{ value: "", label: "Unassigned" }, ...users.map((u) => ({ value: u.id, label: u.name }))]} value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} />
+        {isMultiResource ? (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Assign To Resources</label>
+            <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto border border-gray-200 rounded-lg p-2">
+              {users.filter((u) => u.role !== "SUPER_ADMIN").map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => toggleMultiResource(u.id)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                    form.assignedToMulti.includes(u.id)
+                      ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                      : "bg-white border-gray-300 text-gray-600 hover:border-gray-400"
+                  }`}
+                >
+                  {u.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Select label="Assigned To" options={[{ value: "", label: "Unassigned" }, ...users.filter((u) => u.role !== "SUPER_ADMIN").map((u) => ({ value: u.id, label: u.name }))]} value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} />
+        )}
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label>
@@ -479,6 +543,7 @@ export default function CalendarPage() {
                 <th className="px-4 py-3 font-medium">Posting Date</th>
                 <th className="px-4 py-3 font-medium">Assigned To</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Marked Date</th>
                 <th className="px-4 py-3 font-medium">SLA</th>
                 <th className="px-4 py-3 font-medium">Time</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
@@ -487,7 +552,7 @@ export default function CalendarPage() {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center">
+                  <td colSpan={11} className="px-4 py-8 text-center">
                     <div className="inline-flex items-center justify-center">
                       <div className="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full" />
                     </div>
@@ -530,6 +595,9 @@ export default function CalendarPage() {
                           </span>
                         )}
                       </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {getStatusDate(entry) ? formatDate(getStatusDate(entry)!) : "-"}
+                      </td>
                       <td className="px-4 py-3 text-lg">{sla.color}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 font-mono">
                         {formatDuration(timerTotals[entry.id] || 0)}
@@ -551,7 +619,7 @@ export default function CalendarPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-gray-400">
                     No calendar entries found for this month.
                   </td>
                 </tr>
