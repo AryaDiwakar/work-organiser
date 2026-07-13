@@ -129,19 +129,19 @@ export default function ClientsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
-                <th className="px-5 py-3 font-medium">Name</th>
-                <th className="px-5 py-3 font-medium">Website</th>
-                <th className="px-5 py-3 font-medium">Project</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Created</th>
-                <th className="px-5 py-3 font-medium">Actions</th>
+                <th className="px-5 py-3 font-medium whitespace-nowrap">Name</th>
+                <th className="px-5 py-3 font-medium whitespace-nowrap">Website</th>
+                <th className="px-5 py-3 font-medium whitespace-nowrap">Project</th>
+                <th className="px-5 py-3 font-medium text-center whitespace-nowrap">Status</th>
+                <th className="px-5 py-3 font-medium whitespace-nowrap">Created</th>
+                <th className="px-5 py-3 font-medium text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {clients.length > 0 ? (
                 clients.map((client) => (
                   <tr key={client.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3 whitespace-nowrap">
                       <Link
                         href={`/dashboard/admin/clients/${client.id}`}
                         className="font-medium text-indigo-600 hover:text-indigo-800"
@@ -149,16 +149,16 @@ export default function ClientsPage() {
                         {client.name}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{client.website || "-"}</td>
+                    <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{client.website || "-"}</td>
                     <td className="px-5 py-3 text-gray-600">{client.project || "-"}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3 text-center">
                       <Badge variant={client.isActive ? "success" : "danger"}>
                         {client.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{formatDate(client.createdAt)}</td>
+                    <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{formatDate(client.createdAt)}</td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         <Link href={`/dashboard/admin/clients/${client.id}`}>
                           <Button variant="ghost" size="sm">
                             <Eye className="h-4 w-4" />
@@ -176,7 +176,7 @@ export default function ClientsPage() {
                 ))
               ) : (
                 <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
                     No clients found. Click &quot;Add Client&quot; to create one.
                   </td>
                 </tr>
