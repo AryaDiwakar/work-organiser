@@ -10,6 +10,19 @@ import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3, ClipboardList, 
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 
+function getDeadlineColor(deadline: string | null, status?: string): string {
+  if (!deadline) return "";
+  if (status === "COMPLETED" || status === "NOT_APPLICABLE") return "text-green-600 font-semibold";
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const dl = new Date(deadline);
+  dl.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((dl.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "text-red-600 font-semibold";
+  if (diffDays <= 2) return "text-yellow-600 font-semibold";
+  return "text-green-600 font-semibold";
+}
+
 interface CalendarEntry {
   id: string;
   title: string;
@@ -326,7 +339,7 @@ export default function ResourceDashboardPage() {
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{t.title}</td>
                     <td className="px-5 py-3 text-gray-600">{t.client?.name || "-"}</td>
-                    <td className="px-5 py-3 text-gray-600">{t.deadline ? formatDate(new Date(t.deadline)) : "-"}</td>
+                    <td className={`px-5 py-3 ${getDeadlineColor(t.deadline, t.status)}`}>{t.deadline ? formatDate(new Date(t.deadline)) : "-"}</td>
                     <td className="px-5 py-3">
                       <Badge variant={t.status === "COMPLETED" ? "success" : t.status === "IN_PROGRESS" ? "info" : t.status === "NEW" ? "warning" : "default"}>
                         {t.status.replace(/_/g, " ")}

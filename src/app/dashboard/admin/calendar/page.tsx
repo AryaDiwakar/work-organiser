@@ -120,6 +120,13 @@ export default function CalendarPage() {
   const [reachForm, setReachForm] = useState<Record<string, string>>({});
   const [savingReach, setSavingReach] = useState(false);
   const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
+  const [workDate, setWorkDate] = useState("");
+  const [activeCalendarIds, setActiveCalendarIds] = useState<string[] | null>(null);
+  const [activeAdhocIds, setActiveAdhocIds] = useState<string[]>([]);
+
+  const displayEntries = workDate && activeCalendarIds !== null
+    ? entries.filter((e) => activeCalendarIds.includes(e.id))
+    : entries;
 
   useEffect(() => {
     fetchEntries();
@@ -129,14 +136,33 @@ export default function CalendarPage() {
   }, [startDate, endDate, clientFilter, resourceFilter]);
 
   useEffect(() => {
-    if (entries.length) {
-      const ids = entries.map((e) => e.id).join(",");
-      fetch(`/api/time-tracker?taskType=CALENDAR&taskIds=${ids}`)
+    if (workDate) {
+      fetch(`/api/time-tracker/active-tasks?date=${workDate}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setActiveCalendarIds(data.calendarIds || []);
+          setActiveAdhocIds(data.adhocIds || []);
+        })
+        .catch(() => {
+          setActiveCalendarIds([]);
+          setActiveAdhocIds([]);
+        });
+    } else {
+      setActiveCalendarIds(null);
+      setActiveAdhocIds([]);
+    }
+  }, [workDate]);
+
+  useEffect(() => {
+    if (displayEntries.length) {
+      const ids = displayEntries.map((e) => e.id).join(",");
+      const dateParam = workDate ? `&date=${workDate}` : "";
+      fetch(`/api/time-tracker?taskType=CALENDAR&taskIds=${ids}${dateParam}`)
         .then((r) => r.json())
         .then((data) => setTimerTotals(data || {}))
         .catch(() => {});
     }
-  }, [entries.length]);
+  }, [displayEntries.length, workDate]);
 
   async function fetchEntries() {
     try {
@@ -526,6 +552,22 @@ export default function CalendarPage() {
             onChange={(e) => setClientFilter(e.target.value)}
           />
         </div>
+        <div className="w-44">
+          <Input
+            type="date"
+            value={workDate}
+            onChange={(e) => setWorkDate(e.target.value)}
+            placeholder="Filter by work date"
+          />
+          {workDate && (
+            <button
+              onClick={() => setWorkDate("")}
+              className="text-xs text-indigo-600 hover:text-indigo-800 mt-1"
+            >
+              Clear work date
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
@@ -558,8 +600,8 @@ export default function CalendarPage() {
                     </div>
                   </td>
                 </tr>
-              ) : entries.length > 0 ? (
-                entries.map((entry) => {
+              ) : displayEntries.length > 0 ? (
+                displayEntries.map((entry) => {
                   const sla = getSLAStatus({
                     status: entry.status,
                     postingDate: new Date(entry.postingDate),
@@ -620,7 +662,7 @@ export default function CalendarPage() {
               ) : (
                 <tr>
                   <td colSpan={11} className="px-4 py-8 text-center text-gray-400">
-                    No calendar entries found for this month.
+                    {workDate ? "No calendar entries with activity on this date." : "No calendar entries found for this month."}
                   </td>
                 </tr>
               )}

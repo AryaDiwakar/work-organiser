@@ -40,8 +40,9 @@ const TASK_STATUS_OPTIONS = [
   { value: "NOT_APPLICABLE", label: "Not Applicable" },
 ];
 
-function getDeadlineColor(deadline: string | null): string {
+function getDeadlineColor(deadline: string | null, status?: string): string {
   if (!deadline) return "";
+  if (status === "COMPLETED" || status === "NOT_APPLICABLE") return "text-green-600 font-semibold";
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const dl = new Date(deadline);
@@ -328,7 +329,7 @@ export default function TasksPage() {
                     <td className="px-5 py-3 font-medium text-gray-900">{task.title}</td>
                     <td className="px-5 py-3 text-gray-600">{task.client?.name || "-"}</td>
                     <td className="px-5 py-3 text-gray-600">{task.assignedUser?.name || "Unassigned"}</td>
-                    <td className={`px-5 py-3 ${getDeadlineColor(task.deadline)}`}>
+                    <td className={`px-5 py-3 ${getDeadlineColor(task.deadline, task.status)}`}>
                       {task.deadline ? formatDate(task.deadline) : "-"}
                     </td>
                     <td className="px-5 py-3">
@@ -414,7 +415,7 @@ export default function TasksPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-500">Deadline</label>
-              <p className={`text-gray-900 mt-1 ${getDeadlineColor(viewTask.deadline)}`}>
+              <p className={`text-gray-900 mt-1 ${getDeadlineColor(viewTask.deadline, viewTask.status)}`}>
                 {viewTask.deadline ? formatDate(viewTask.deadline) : "-"}
               </p>
             </div>

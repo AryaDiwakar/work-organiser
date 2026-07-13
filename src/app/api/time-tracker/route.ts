@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+function getISTDate(date: Date): Date {
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(date.getTime() + istOffset);
+  return new Date(Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth(), istDate.getUTCDate()));
+}
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,12 +20,19 @@ export async function GET(req: Request) {
     const taskType = searchParams.get("taskType");
     const taskId = searchParams.get("taskId");
     const taskIds = searchParams.get("taskIds");
+    const dateParam = searchParams.get("date");
 
     if (taskType && taskIds) {
       const idList = taskIds.split(",").filter(Boolean);
-      const timers = await prisma.taskTimer.findMany({
-        where: { taskType, taskId: { in: idList } },
-      });
+      const where: Record<string, unknown> = { taskType, taskId: { in: idList } };
+
+      if (dateParam) {
+        const dateStart = getISTDate(new Date(dateParam));
+        const dateEnd = new Date(dateStart.getTime() + 24 * 60 * 60 * 1000);
+        where.date = { gte: dateStart, lt: dateEnd };
+      }
+
+      const timers = await prisma.taskTimer.findMany({ where });
       const totals: Record<string, number> = {};
       for (const t of timers) {
         if (t.endTime) {
@@ -72,6 +85,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "taskType must be CALENDAR or ADHOC" }, { status: 400 });
     }
 
+    const now = new Date();
+    const istDate = getISTDate(now);
+
     switch (action) {
       case "start": {
         const existingRunning = await prisma.taskTimer.findFirst({
@@ -80,11 +96,11 @@ export async function POST(req: Request) {
         if (existingRunning) {
           await prisma.taskTimer.update({
             where: { id: existingRunning.id },
-            data: { endTime: new Date() },
+            data: { endTime: now },
           });
         }
         const timer = await prisma.taskTimer.create({
-          data: { userId, taskType, taskId, startTime: new Date() },
+          data: { userId, taskType, taskId, startTime: now, date: istDate },
         });
         return NextResponse.json(timer);
       }
@@ -98,7 +114,7 @@ export async function POST(req: Request) {
         }
         const updated = await prisma.taskTimer.update({
           where: { id: running.id },
-          data: { endTime: new Date() },
+          data: { endTime: now },
         });
         return NextResponse.json(updated);
       }
@@ -110,11 +126,11 @@ export async function POST(req: Request) {
         if (existingRunning) {
           await prisma.taskTimer.update({
             where: { id: existingRunning.id },
-            data: { endTime: new Date() },
+            data: { endTime: now },
           });
         }
         const timer = await prisma.taskTimer.create({
-          data: { userId, taskType, taskId, startTime: new Date() },
+          data: { userId, taskType, taskId, startTime: now, date: istDate },
         });
         return NextResponse.json(timer);
       }
@@ -126,7 +142,7 @@ export async function POST(req: Request) {
         if (running) {
           const updated = await prisma.taskTimer.update({
             where: { id: running.id },
-            data: { endTime: new Date() },
+            data: { endTime: now },
           });
           return NextResponse.json(updated);
         }

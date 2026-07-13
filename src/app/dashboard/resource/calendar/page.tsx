@@ -1,11 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, getStatusLabel, getStatusColor, getSLAStatus } from "@/lib/utils";
+import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Calendar } from "lucide-react";
+import { Calendar, Clock, Play, Pause, Square } from "lucide-react";
 
 interface CalendarEntry {
   id: string;
@@ -19,15 +19,62 @@ interface CalendarEntry {
 export default function ResourceCalendarPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
-  const now = new Date();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [workDate, setWorkDate] = useState("");
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeCalendarIds, setActiveCalendarIds] = useState<string[] | null>(null);
+  const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
+  const [activeTimer, setActiveTimer] = useState<{ taskType: string; taskId: string; startTime: string } | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  const displayEntries = workDate && activeCalendarIds !== null
+    ? entries.filter((e) => activeCalendarIds.includes(e.id))
+    : entries;
 
   useEffect(() => {
     if (userId) fetchEntries();
   }, [startDate, endDate, userId]);
+
+  useEffect(() => {
+    if (workDate) {
+      fetch(`/api/time-tracker/active-tasks?date=${workDate}&userId=${userId}`)
+        .then((r) => r.json())
+        .then((data) => setActiveCalendarIds(data.calendarIds || []))
+        .catch(() => setActiveCalendarIds([]));
+    } else {
+      setActiveCalendarIds(null);
+    }
+  }, [workDate, userId]);
+
+  useEffect(() => {
+    if (userId) {
+      fetch("/api/time-tracker")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.active) setActiveTimer({ taskType: data.active.taskType, taskId: data.active.taskId, startTime: data.active.startTime });
+          else setActiveTimer(null);
+        })
+        .catch(() => {});
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (displayEntries.length) {
+      const ids = displayEntries.map((e) => e.id).join(",");
+      const dateParam = workDate ? `&date=${workDate}` : "";
+      fetch(`/api/time-tracker?taskType=CALENDAR&taskIds=${ids}${dateParam}`)
+        .then((r) => r.json())
+        .then((data) => setTimerTotals(data || {}))
+        .catch(() => {});
+    }
+  }, [displayEntries.length, workDate]);
 
   async function fetchEntries() {
     setLoading(true);
@@ -45,6 +92,32 @@ export default function ResourceCalendarPage() {
     }
   }
 
+  async function handleTimerAction(action: string, taskType: string, taskId: string) {
+    await fetch("/api/time-tracker", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, taskType, taskId }),
+    });
+    const res = await fetch("/api/time-tracker");
+    const data = await res.json();
+    if (data?.active) setActiveTimer({ taskType: data.active.taskType, taskId: data.active.taskId, startTime: data.active.startTime });
+    else setActiveTimer(null);
+    setNow(Date.now());
+  }
+
+  function isTimerRunning(taskType: string, taskId: string) {
+    return activeTimer?.taskType === taskType && activeTimer?.taskId === taskId;
+  }
+
+  function getTimerElapsed(taskType: string, taskId: string) {
+    const completed = timerTotals[taskId] || 0;
+    if (isTimerRunning(taskType, taskId) && activeTimer) {
+      const running = Math.floor((now - new Date(activeTimer.startTime).getTime()) / 1000);
+      return completed + running;
+    }
+    return completed;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -60,12 +133,27 @@ export default function ResourceCalendarPage() {
         <div className="w-44">
           <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
+        <div className="w-44">
+          <Input
+            type="date"
+            value={workDate}
+            onChange={(e) => setWorkDate(e.target.value)}
+          />
+          {workDate && (
+            <button onClick={() => setWorkDate("")} className="text-xs text-indigo-600 hover:text-indigo-800 mt-1">
+              Clear work date
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-5 border-b border-gray-200 flex items-center gap-2">
           <Calendar className="h-5 w-5 text-indigo-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Assigned Tasks</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {workDate ? `Tasks worked on ${formatDate(workDate)}` : "Assigned Tasks"}
+          </h2>
+          <span className="text-sm text-gray-500 ml-auto">{displayEntries.length} entries</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -76,17 +164,19 @@ export default function ResourceCalendarPage() {
                 <th className="px-5 py-3 font-medium">Posting Date</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">SLA Status</th>
+                {workDate && <th className="px-5 py-3 font-medium">Time</th>}
+                {workDate && <th className="px-5 py-3 font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center">
+                  <td colSpan={workDate ? 7 : 5} className="px-5 py-8 text-center">
                     <div className="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto" />
                   </td>
                 </tr>
-              ) : entries.length > 0 ? (
-                entries.map((entry) => {
+              ) : displayEntries.length > 0 ? (
+                displayEntries.map((entry) => {
                   const sla = getSLAStatus({
                     status: entry.status,
                     postingDate: new Date(entry.postingDate),
@@ -110,13 +200,38 @@ export default function ResourceCalendarPage() {
                           {sla.color} {sla.label}
                         </span>
                       </td>
+                      {workDate && (
+                        <td className="px-5 py-3 text-xs text-gray-500 font-mono">
+                          {formatDuration(getTimerElapsed("CALENDAR", entry.id))}
+                        </td>
+                      )}
+                      {workDate && (
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-1">
+                            {isTimerRunning("CALENDAR", entry.id) ? (
+                              <>
+                                <button onClick={() => handleTimerAction("pause", "CALENDAR", entry.id)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Pause">
+                                  <Pause className="h-4 w-4" />
+                                </button>
+                                <button onClick={() => handleTimerAction("stop", "CALENDAR", entry.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Stop">
+                                  <Square className="h-4 w-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => handleTimerAction("start", "CALENDAR", entry.id)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Start">
+                                <Play className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
-                    No tasks assigned to you for this month.
+                  <td colSpan={workDate ? 7 : 5} className="px-5 py-8 text-center text-gray-400">
+                    {workDate ? "No tasks with activity on this date." : "No tasks assigned to you for this month."}
                   </td>
                 </tr>
               )}
