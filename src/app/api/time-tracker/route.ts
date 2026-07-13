@@ -47,10 +47,17 @@ export async function GET(req: Request) {
     }
 
     if (taskType && taskId) {
-      const userId = searchParams.get("userId") || (session.user as { id: string }).id;
+      const role = (session.user as any)?.role;
+      const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+      const userIdParam = searchParams.get("userId");
+      const where: Record<string, unknown> = { taskType, taskId };
+      if (!isAdmin || userIdParam) {
+        where.userId = userIdParam || (session.user as { id: string }).id;
+      }
       const entries = await prisma.taskTimer.findMany({
-        where: { userId, taskType, taskId },
+        where,
         orderBy: { startTime: "asc" },
+        include: { user: { select: { id: true, name: true } } },
       });
       return NextResponse.json(entries);
     }

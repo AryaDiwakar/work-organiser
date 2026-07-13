@@ -9,6 +9,7 @@ interface TimerEntry {
   startTime: string;
   endTime: string | null;
   date: string;
+  user?: { id: string; name: string };
 }
 
 interface TimeLogModalProps {
@@ -44,6 +45,7 @@ export function TimeLogModal({ isOpen, onClose, taskType, taskId, taskTitle }: T
   }
 
   const totalSeconds = logs.reduce((sum, log) => sum + getEntryDuration(log), 0);
+  const showUser = logs.some((log) => log.user);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Time Logs - ${taskTitle}`} size="lg">
@@ -63,6 +65,7 @@ export function TimeLogModal({ isOpen, onClose, taskType, taskId, taskTitle }: T
                 <tr className="bg-gray-50 text-left text-gray-500">
                   <th className="px-4 py-2 font-medium">#</th>
                   <th className="px-4 py-2 font-medium">Date</th>
+                  {showUser && <th className="px-4 py-2 font-medium">Resource</th>}
                   <th className="px-4 py-2 font-medium">Start Time</th>
                   <th className="px-4 py-2 font-medium">End Time</th>
                   <th className="px-4 py-2 font-medium">Duration</th>
@@ -73,6 +76,7 @@ export function TimeLogModal({ isOpen, onClose, taskType, taskId, taskTitle }: T
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-4 py-2 text-gray-500">{i + 1}</td>
                     <td className="px-4 py-2 text-gray-900">{formatDate(log.date || log.startTime)}</td>
+                    {showUser && <td className="px-4 py-2 text-gray-600">{log.user?.name || "-"}</td>}
                     <td className="px-4 py-2 text-gray-600">
                       {new Date(log.startTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                     </td>
