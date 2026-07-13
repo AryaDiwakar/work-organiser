@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, BarChart3, Download } from "lucide-react";
+import { Plus, BarChart3, Download, Clock, ClipboardList } from "lucide-react";
+import { TimeLogModal } from "@/components/ui/TimeLogModal";
 import * as XLSX from "xlsx";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
@@ -123,6 +124,9 @@ export default function CalendarPage() {
   const [workDate, setWorkDate] = useState("");
   const [activeCalendarIds, setActiveCalendarIds] = useState<string[] | null>(null);
   const [activeAdhocIds, setActiveAdhocIds] = useState<string[]>([]);
+  const [adhocTasks, setAdhocTasks] = useState<{ id: string; title: string; description: string | null; deadline: string | null; status: string; client: { id: string; name: string } | null; assignedUser: { id: string; name: string } | null }[]>([]);
+  const [adhocTimerTotals, setAdhocTimerTotals] = useState<Record<string, number>>({});
+  const [timeLogModal, setTimeLogModal] = useState<{ taskType: string; taskId: string; title: string } | null>(null);
 
   const displayEntries = workDate && activeCalendarIds !== null
     ? entries.filter((e) => activeCalendarIds.includes(e.id))
@@ -152,6 +156,28 @@ export default function CalendarPage() {
       setActiveAdhocIds([]);
     }
   }, [workDate]);
+
+  useEffect(() => {
+    if (activeAdhocIds.length > 0) {
+      fetch(`/api/tasks?ids=${activeAdhocIds.join(",")}`)
+        .then((r) => r.json())
+        .then((data) => setAdhocTasks(Array.isArray(data) ? data : data.data || []))
+        .catch(() => setAdhocTasks([]));
+    } else {
+      setAdhocTasks([]);
+    }
+  }, [activeAdhocIds]);
+
+  useEffect(() => {
+    if (adhocTasks.length) {
+      const ids = adhocTasks.map((t) => t.id).join(",");
+      const dateParam = workDate ? `&date=${workDate}` : "";
+      fetch(`/api/time-tracker?taskType=ADHOC&taskIds=${ids}${dateParam}`)
+        .then((r) => r.json())
+        .then((data) => setAdhocTimerTotals(data || {}))
+        .catch(() => {});
+    }
+  }, [adhocTasks.length, workDate]);
 
   useEffect(() => {
     if (displayEntries.length) {
@@ -646,6 +672,13 @@ export default function CalendarPage() {
                       </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setTimeLogModal({ taskType: "CALENDAR", taskId: entry.id, title: entry.title })}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                            title="View time logs"
+                          >
+                            <Clock className="h-3.5 w-3.5" />
+                          </button>
                           {entry.status === "POSTED" && (
                             <Button size="sm" variant="outline" onClick={() => openReachModal(entry)}>
                               <BarChart3 className="h-3.5 w-3.5" />
@@ -670,6 +703,58 @@ export default function CalendarPage() {
           </table>
         </div>
       </div>
+
+      {workDate && adhocTasks.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-5 border-b border-gray-200 flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-indigo-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Adhoc Tasks Worked On</h2>
+            <span className="text-sm text-gray-500 ml-auto">{adhocTasks.length} tasks</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-left text-gray-500">
+                  <th className="px-4 py-3 font-medium">Title</th>
+                  <th className="px-4 py-3 font-medium">Client</th>
+                  <th className="px-4 py-3 font-medium">Assigned To</th>
+                  <th className="px-4 py-3 font-medium">Deadline</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Time</th>
+                  <th className="px-4 py-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {adhocTasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">{task.title}</td>
+                    <td className="px-4 py-3 text-gray-600">{task.client?.name || "-"}</td>
+                    <td className="px-4 py-3 text-gray-600">{task.assignedUser?.name || "Unassigned"}</td>
+                    <td className="px-4 py-3 text-gray-600">{task.deadline ? formatDate(task.deadline) : "-"}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={task.status === "COMPLETED" ? "success" : task.status === "IN_PROGRESS" ? "info" : "default"}>
+                        {task.status.replace(/_/g, " ")}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500 font-mono">
+                      {formatDuration(adhocTimerTotals[task.id] || 0)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setTimeLogModal({ taskType: "ADHOC", taskId: task.id, title: task.title })}
+                        className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                        title="View time logs"
+                      >
+                        <Clock className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Add Calendar Entry" size="lg">
         {calendarFormFields}
@@ -699,6 +784,14 @@ export default function CalendarPage() {
           </div>
         </div>
       </Modal>
+
+      <TimeLogModal
+        isOpen={!!timeLogModal}
+        onClose={() => setTimeLogModal(null)}
+        taskType={timeLogModal?.taskType || ""}
+        taskId={timeLogModal?.taskId || ""}
+        taskTitle={timeLogModal?.title || ""}
+      />
     </div>
   );
 }

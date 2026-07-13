@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, Download, Trash2, Edit2, Eye } from "lucide-react";
+import { Plus, Download, Trash2, Edit2, Eye, Clock } from "lucide-react";
+import { TimeLogModal } from "@/components/ui/TimeLogModal";
 import * as XLSX from "xlsx";
 
 interface Task {
@@ -93,6 +94,7 @@ export default function TasksPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
+  const [timeLogModal, setTimeLogModal] = useState<{ taskId: string; title: string } | null>(null);
 
   useEffect(() => {
     fetchTasks();
@@ -359,6 +361,13 @@ export default function TasksPage() {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => setTimeLogModal({ taskId: task.id, title: task.title })}
+                          className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                          title="View time logs"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => openViewModal(task)}
                           className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
                           title="View task"
@@ -473,6 +482,14 @@ export default function TasksPage() {
           </div>
         </div>
       </Modal>
+
+      <TimeLogModal
+        isOpen={!!timeLogModal}
+        onClose={() => setTimeLogModal(null)}
+        taskType="ADHOC"
+        taskId={timeLogModal?.taskId || ""}
+        taskTitle={timeLogModal?.title || ""}
+      />
     </div>
   );
 }

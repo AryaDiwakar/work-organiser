@@ -5,7 +5,8 @@ import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, formatDuratio
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Calendar, Clock, Play, Pause, Square } from "lucide-react";
+import { TimeLogModal } from "@/components/ui/TimeLogModal";
+import { Calendar, Clock, Play, Pause, Square, ClipboardList } from "lucide-react";
 
 interface CalendarEntry {
   id: string;
@@ -14,6 +15,15 @@ interface CalendarEntry {
   postingDate: string;
   status: string;
   assignedUser: { id: string; name: string } | null;
+}
+
+interface AdhocTask {
+  id: string;
+  title: string;
+  description: string | null;
+  deadline: string | null;
+  status: string;
+  client: { id: string; name: string } | null;
 }
 
 export default function ResourceCalendarPage() {
@@ -25,9 +35,13 @@ export default function ResourceCalendarPage() {
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCalendarIds, setActiveCalendarIds] = useState<string[] | null>(null);
+  const [activeAdhocIds, setActiveAdhocIds] = useState<string[]>([]);
+  const [adhocTasks, setAdhocTasks] = useState<AdhocTask[]>([]);
   const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
+  const [adhocTimerTotals, setAdhocTimerTotals] = useState<Record<string, number>>({});
   const [activeTimer, setActiveTimer] = useState<{ taskType: string; taskId: string; startTime: string } | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [timeLogModal, setTimeLogModal] = useState<{ taskType: string; taskId: string; title: string } | null>(null);
 
   const displayEntries = workDate && activeCalendarIds !== null
     ? entries.filter((e) => activeCalendarIds.includes(e.id))
@@ -41,12 +55,30 @@ export default function ResourceCalendarPage() {
     if (workDate) {
       fetch(`/api/time-tracker/active-tasks?date=${workDate}&userId=${userId}`)
         .then((r) => r.json())
-        .then((data) => setActiveCalendarIds(data.calendarIds || []))
-        .catch(() => setActiveCalendarIds([]));
+        .then((data) => {
+          setActiveCalendarIds(data.calendarIds || []);
+          setActiveAdhocIds(data.adhocIds || []);
+        })
+        .catch(() => {
+          setActiveCalendarIds([]);
+          setActiveAdhocIds([]);
+        });
     } else {
       setActiveCalendarIds(null);
+      setActiveAdhocIds([]);
     }
   }, [workDate, userId]);
+
+  useEffect(() => {
+    if (activeAdhocIds.length > 0) {
+      fetch(`/api/tasks?ids=${activeAdhocIds.join(",")}&assignedTo=${userId}`)
+        .then((r) => r.json())
+        .then((data) => setAdhocTasks(Array.isArray(data) ? data : data.data || []))
+        .catch(() => setAdhocTasks([]));
+    } else {
+      setAdhocTasks([]);
+    }
+  }, [activeAdhocIds, userId]);
 
   useEffect(() => {
     if (userId) {
@@ -75,6 +107,17 @@ export default function ResourceCalendarPage() {
         .catch(() => {});
     }
   }, [displayEntries.length, workDate]);
+
+  useEffect(() => {
+    if (adhocTasks.length) {
+      const ids = adhocTasks.map((t) => t.id).join(",");
+      const dateParam = workDate ? `&date=${workDate}` : "";
+      fetch(`/api/time-tracker?taskType=ADHOC&taskIds=${ids}${dateParam}`)
+        .then((r) => r.json())
+        .then((data) => setAdhocTimerTotals(data || {}))
+        .catch(() => {});
+    }
+  }, [adhocTasks.length, workDate]);
 
   async function fetchEntries() {
     setLoading(true);
@@ -118,6 +161,10 @@ export default function ResourceCalendarPage() {
     return completed;
   }
 
+  function getAdhocTimerElapsed(taskId: string) {
+    return adhocTimerTotals[taskId] || 0;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -151,7 +198,7 @@ export default function ResourceCalendarPage() {
         <div className="p-5 border-b border-gray-200 flex items-center gap-2">
           <Calendar className="h-5 w-5 text-indigo-600" />
           <h2 className="text-lg font-semibold text-gray-900">
-            {workDate ? `Tasks worked on ${formatDate(workDate)}` : "Assigned Tasks"}
+            {workDate ? `Calendar Tasks - ${formatDate(workDate)}` : "Assigned Calendar Tasks"}
           </h2>
           <span className="text-sm text-gray-500 ml-auto">{displayEntries.length} entries</span>
         </div>
@@ -222,6 +269,9 @@ export default function ResourceCalendarPage() {
                                 <Play className="h-4 w-4" />
                               </button>
                             )}
+                            <button onClick={() => setTimeLogModal({ taskType: "CALENDAR", taskId: entry.id, title: entry.title })} className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50" title="View time logs">
+                              <Clock className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       )}
@@ -231,7 +281,7 @@ export default function ResourceCalendarPage() {
               ) : (
                 <tr>
                   <td colSpan={workDate ? 7 : 5} className="px-5 py-8 text-center text-gray-400">
-                    {workDate ? "No tasks with activity on this date." : "No tasks assigned to you for this month."}
+                    {workDate ? "No calendar tasks with activity on this date." : "No tasks assigned to you for this month."}
                   </td>
                 </tr>
               )}
@@ -239,6 +289,76 @@ export default function ResourceCalendarPage() {
           </table>
         </div>
       </div>
+
+      {workDate && adhocTasks.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-5 border-b border-gray-200 flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-indigo-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Adhoc Tasks - {formatDate(workDate)}</h2>
+            <span className="text-sm text-gray-500 ml-auto">{adhocTasks.length} tasks</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-left text-gray-500">
+                  <th className="px-5 py-3 font-medium">Title</th>
+                  <th className="px-5 py-3 font-medium">Client</th>
+                  <th className="px-5 py-3 font-medium">Deadline</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Time</th>
+                  <th className="px-5 py-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {adhocTasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-gray-50">
+                    <td className="px-5 py-3 font-medium text-gray-900">{task.title}</td>
+                    <td className="px-5 py-3 text-gray-600">{task.client?.name || "-"}</td>
+                    <td className="px-5 py-3 text-gray-600">{task.deadline ? formatDate(new Date(task.deadline)) : "-"}</td>
+                    <td className="px-5 py-3">
+                      <Badge variant={task.status === "COMPLETED" ? "success" : task.status === "IN_PROGRESS" ? "info" : "default"}>
+                        {task.status.replace(/_/g, " ")}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-gray-500 font-mono">
+                      {formatDuration(getAdhocTimerElapsed(task.id))}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1">
+                        {isTimerRunning("ADHOC", task.id) ? (
+                          <>
+                            <button onClick={() => handleTimerAction("pause", "ADHOC", task.id)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Pause">
+                              <Pause className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => handleTimerAction("stop", "ADHOC", task.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Stop">
+                              <Square className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={() => handleTimerAction("start", "ADHOC", task.id)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Start">
+                            <Play className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button onClick={() => setTimeLogModal({ taskType: "ADHOC", taskId: task.id, title: task.title })} className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50" title="View time logs">
+                          <Clock className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <TimeLogModal
+        isOpen={!!timeLogModal}
+        onClose={() => setTimeLogModal(null)}
+        taskType={timeLogModal?.taskType || ""}
+        taskId={timeLogModal?.taskId || ""}
+        taskTitle={timeLogModal?.title || ""}
+      />
     </div>
   );
 }

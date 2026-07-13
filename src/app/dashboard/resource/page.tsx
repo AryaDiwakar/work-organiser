@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3, ClipboardList, Trash2, Play, Pause, Square } from "lucide-react";
+import { TimeLogModal } from "@/components/ui/TimeLogModal";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 
@@ -60,6 +61,7 @@ export default function ResourceDashboardPage() {
   const [activeTimer, setActiveTimer] = useState<{ taskType: string; taskId: string; startTime: string } | null>(null);
   const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
   const [now, setNow] = useState(Date.now());
+  const [timeLogModal, setTimeLogModal] = useState<{ taskType: string; taskId: string; title: string } | null>(null);
 
   useEffect(() => {
     if (userId) fetchTasks();
@@ -385,6 +387,13 @@ export default function ResourceDashboardPage() {
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
+                        <button
+                          onClick={() => setTimeLogModal({ taskType: "ADHOC", taskId: t.id, title: t.title })}
+                          className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                          title="View time logs"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -483,6 +492,13 @@ export default function ResourceDashboardPage() {
                               <BarChart3 className="h-4 w-4" />
                             </Button>
                           )}
+                          <button
+                            onClick={() => setTimeLogModal({ taskType: "CALENDAR", taskId: entry.id, title: entry.title })}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                            title="View time logs"
+                          >
+                            <Clock className="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -513,6 +529,14 @@ export default function ResourceDashboardPage() {
           </div>
         </div>
       </Modal>
+
+      <TimeLogModal
+        isOpen={!!timeLogModal}
+        onClose={() => setTimeLogModal(null)}
+        taskType={timeLogModal?.taskType || ""}
+        taskId={timeLogModal?.taskId || ""}
+        taskTitle={timeLogModal?.title || ""}
+      />
     </div>
   );
 }

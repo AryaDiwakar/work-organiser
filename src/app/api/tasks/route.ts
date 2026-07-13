@@ -15,10 +15,15 @@ export async function GET(req: Request) {
     const assignedTo = searchParams.get("assignedTo");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const ids = searchParams.get("ids");
 
     const where: Record<string, unknown> = {};
     if (clientId) where.clientId = clientId;
     if (assignedTo) where.assignedTo = assignedTo;
+    if (ids) {
+      const idList = ids.split(",").filter(Boolean);
+      where.id = { in: idList };
+    }
 
     if (startDate || endDate) {
       where.deadline = {};

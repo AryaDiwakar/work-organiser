@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { getStatusLabel, formatDate, formatTime } from "@/lib/utils";
+import { getStatusLabel, formatDate, formatTime, formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { FileText, Users, BarChart3, Download } from "lucide-react";
+import { FileText, Users, BarChart3, Download, Clock } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -14,7 +14,7 @@ import {
 } from "recharts";
 
 const PIE_COLORS = ["#6366f1", "#22c55e", "#eab308", "#ef4444", "#3b82f6", "#ec4899"];
-type ReportTab = "client" | "attendance";
+type ReportTab = "client" | "attendance" | "time";
 
 export default function ReportsPage() {
   const { data: session } = useSession();
@@ -37,8 +37,18 @@ export default function ReportsPage() {
   const [attReport, setAttReport] = useState<any>(null);
   const [attLoading, setAttLoading] = useState(false);
 
+  // Time report state
+  const [timeStartDate, setTimeStartDate] = useState("");
+  const [timeEndDate, setTimeEndDate] = useState("");
+  const [timeUserFilter, setTimeUserFilter] = useState("");
+  const [timeTaskTypeFilter, setTimeTaskTypeFilter] = useState("ALL");
+  const [timeReport, setTimeReport] = useState<any>(null);
+  const [timeLoading, setTimeLoading] = useState(false);
+  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+
   useEffect(() => {
     fetchClients();
+    fetchUsers();
   }, []);
 
   async function fetchClients() {
@@ -48,6 +58,17 @@ export default function ReportsPage() {
       setClients(Array.isArray(data) ? data : data.data || []);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
+    }
+  }
+
+  async function fetchUsers() {
+    try {
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      const usersData = Array.isArray(data) ? data : data.data || [];
+      setUsers(usersData.filter((u: any) => u.isActive));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
     }
   }
 
@@ -134,6 +155,54 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function generateTimeReport() {
+    if (!timeStartDate || !timeEndDate) return;
+    setTimeLoading(true);
+    try {
+      const params = new URLSearchParams({ startDate: timeStartDate, endDate: timeEndDate });
+      if (timeUserFilter) params.set("userId", timeUserFilter);
+      if (timeTaskTypeFilter !== "ALL") params.set("taskType", timeTaskTypeFilter);
+      const res = await fetch(`/api/reports/time?${params}`);
+      const data = await res.json();
+      setTimeReport(data);
+    } catch (error) {
+      console.error("Failed to generate time report:", error);
+    } finally {
+      setTimeLoading(false);
+    }
+  }
+
+  function downloadTimeExcel() {
+    if (!timeReport) return;
+    const summaryRows = (timeReport.byUser || []).map((u: any) => ({
+      "Resource": u.name,
+      "Calendar Sessions": u.taskTypes?.CALENDAR || 0,
+      "Adhoc Sessions": u.taskTypes?.ADHOC || 0,
+      "Total Sessions": u.sessions,
+      "Total Time": formatDuration(u.seconds),
+    }));
+    const dateRows = (timeReport.byDate || []).map((d: any) => ({
+      "Date": d.date,
+      "Calendar Entries": d.calendarCount,
+      "Adhoc Entries": d.adhocCount,
+      "Total Sessions": d.sessions,
+      "Total Time": formatDuration(d.seconds),
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+    const ws2 = XLSX.utils.json_to_sheet(dateRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, "By Resource");
+    XLSX.utils.book_append_sheet(wb, ws2, "By Date");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `time_report_${timeStartDate}_to_${timeEndDate}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
     value: String(i + 1), label: new Date(2024, i).toLocaleString("default", { month: "long" }),
   }));
@@ -145,6 +214,7 @@ export default function ReportsPage() {
 
   const tabs = [
     { key: "client" as ReportTab, label: "Client Work Report", icon: BarChart3 },
+    { key: "time" as ReportTab, label: "Time Report", icon: Clock },
     ...(isSuperAdmin ? [{ key: "attendance" as ReportTab, label: "Attendance Report", icon: Users }] : []),
   ];
 
@@ -289,6 +359,139 @@ export default function ReportsPage() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                   <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-400">Select a client and generate report to view data.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "time" && (
+            <div className="space-y-6">
+              <div className="flex items-end gap-4">
+                <div className="w-44">
+                  <Input label="Start Date" type="date" value={timeStartDate} onChange={(e) => setTimeStartDate(e.target.value)} />
+                </div>
+                <span className="text-gray-400 pb-2">to</span>
+                <div className="w-44">
+                  <Input label="End Date" type="date" value={timeEndDate} onChange={(e) => setTimeEndDate(e.target.value)} />
+                </div>
+                <div className="w-56">
+                  <Select
+                    label="Resource"
+                    options={[{ value: "", label: "All Resources" }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
+                    value={timeUserFilter}
+                    onChange={(e) => setTimeUserFilter(e.target.value)}
+                  />
+                </div>
+                <div className="w-44">
+                  <Select
+                    label="Task Type"
+                    options={[
+                      { value: "ALL", label: "All Types" },
+                      { value: "CALENDAR", label: "Calendar" },
+                      { value: "ADHOC", label: "Adhoc" },
+                    ]}
+                    value={timeTaskTypeFilter}
+                    onChange={(e) => setTimeTaskTypeFilter(e.target.value)}
+                  />
+                </div>
+                <Button onClick={generateTimeReport} isLoading={timeLoading}>Generate Report</Button>
+                {timeReport && (
+                  <Button variant="outline" onClick={downloadTimeExcel}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                )}
+              </div>
+
+              {timeReport ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Total Hours</p>
+                      <p className="text-2xl font-bold text-indigo-600">{formatDuration(timeReport.summary?.totalSeconds || 0)}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Total Sessions</p>
+                      <p className="text-2xl font-bold text-gray-900">{timeReport.summary?.totalSessions || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Unique Tasks</p>
+                      <p className="text-2xl font-bold text-gray-900">{timeReport.summary?.uniqueTasks || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Avg Session</p>
+                      <p className="text-2xl font-bold text-gray-900">{formatDuration(timeReport.summary?.avgSessionSeconds || 0)}</p>
+                    </div>
+                  </div>
+
+                  {timeReport.byDate?.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="p-4 border-b border-gray-200">
+                        <h2 className="text-lg font-semibold text-gray-900">Date-wise Breakdown</h2>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-left text-gray-500">
+                              <th className="px-4 py-3 font-medium">Date</th>
+                              <th className="px-4 py-3 font-medium">Calendar Sessions</th>
+                              <th className="px-4 py-3 font-medium">Adhoc Sessions</th>
+                              <th className="px-4 py-3 font-medium">Total Sessions</th>
+                              <th className="px-4 py-3 font-medium">Total Time</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {timeReport.byDate.map((d: any) => (
+                              <tr key={d.date} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 font-medium text-gray-900">{formatDate(d.date)}</td>
+                                <td className="px-4 py-3 text-gray-600">{d.calendarCount}</td>
+                                <td className="px-4 py-3 text-gray-600">{d.adhocCount}</td>
+                                <td className="px-4 py-3 text-gray-600">{d.sessions}</td>
+                                <td className="px-4 py-3 text-gray-900 font-mono">{formatDuration(d.seconds)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {timeReport.byUser?.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="p-4 border-b border-gray-200">
+                        <h2 className="text-lg font-semibold text-gray-900">Resource-wise Summary</h2>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-left text-gray-500">
+                              <th className="px-4 py-3 font-medium">Resource</th>
+                              <th className="px-4 py-3 font-medium">Calendar Sessions</th>
+                              <th className="px-4 py-3 font-medium">Adhoc Sessions</th>
+                              <th className="px-4 py-3 font-medium">Total Sessions</th>
+                              <th className="px-4 py-3 font-medium">Total Time</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {timeReport.byUser.map((u: any) => (
+                              <tr key={u.userId} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 font-medium text-gray-900">{u.name}</td>
+                                <td className="px-4 py-3 text-gray-600">{u.taskTypes?.CALENDAR || 0}</td>
+                                <td className="px-4 py-3 text-gray-600">{u.taskTypes?.ADHOC || 0}</td>
+                                <td className="px-4 py-3 text-gray-600">{u.sessions}</td>
+                                <td className="px-4 py-3 text-gray-900 font-mono">{formatDuration(u.seconds)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                  <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-400">Select a date range and generate report to view time data.</p>
                 </div>
               )}
             </div>
