@@ -84,6 +84,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [clientFilter, setClientFilter] = useState("");
   const [resourceFilter, setResourceFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -253,7 +254,7 @@ export default function TasksPage() {
     URL.revokeObjectURL(url);
   }
 
-  const sortedTasks = sortByDeadline(tasks);
+  const sortedTasks = sortByDeadline(tasks).filter((t) => !statusFilter || t.status === statusFilter);
 
   return (
     <div className="space-y-6">
@@ -293,6 +294,16 @@ export default function TasksPage() {
             ]}
             value={resourceFilter}
             onChange={(e) => setResourceFilter(e.target.value)}
+          />
+        </div>
+        <div className="w-52">
+          <Select
+            options={[
+              { value: "", label: "All Statuses" },
+              ...TASK_STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
+            ]}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
           />
         </div>
         <div className="w-44">

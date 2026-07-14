@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { TimeLogModal } from "@/components/ui/TimeLogModal";
 import { Calendar, Clock, Play, Pause, Square, ClipboardList } from "lucide-react";
@@ -32,6 +33,7 @@ export default function ResourceCalendarPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [workDate, setWorkDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCalendarIds, setActiveCalendarIds] = useState<string[] | null>(null);
@@ -43,9 +45,10 @@ export default function ResourceCalendarPage() {
   const [now, setNow] = useState(Date.now());
   const [timeLogModal, setTimeLogModal] = useState<{ taskType: string; taskId: string; title: string } | null>(null);
 
-  const displayEntries = workDate && activeCalendarIds !== null
+  const displayEntries = (workDate && activeCalendarIds !== null
     ? entries.filter((e) => activeCalendarIds.includes(e.id))
-    : entries;
+    : entries
+  ).filter((e) => !statusFilter || e.status === statusFilter);
 
   useEffect(() => {
     if (userId) fetchEntries();
@@ -192,6 +195,25 @@ export default function ResourceCalendarPage() {
             </button>
           )}
         </div>
+        <div className="w-52">
+          <Select
+            options={[
+              { value: "", label: "All Statuses" },
+              { value: "YET_TO_BE_DONE", label: "Yet to be done" },
+              { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+              { value: "DESIGNED", label: "Designed" },
+              { value: "SHARED_TO_CLIENT", label: "Shared to client" },
+              { value: "APPROVED", label: "Approved" },
+              { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+              { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+              { value: "SCHEDULED", label: "Scheduled" },
+              { value: "POSTED", label: "Posted" },
+              { value: "REJECTED", label: "Rejected" },
+            ]}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -290,12 +312,12 @@ export default function ResourceCalendarPage() {
         </div>
       </div>
 
-      {workDate && adhocTasks.length > 0 && (
+      {workDate && adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-5 border-b border-gray-200 flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-indigo-600" />
             <h2 className="text-lg font-semibold text-gray-900">Adhoc Tasks - {formatDate(workDate)}</h2>
-            <span className="text-sm text-gray-500 ml-auto">{adhocTasks.length} tasks</span>
+            <span className="text-sm text-gray-500 ml-auto">{adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).length} tasks</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -310,7 +332,7 @@ export default function ResourceCalendarPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {adhocTasks.map((task) => (
+                {adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).map((task) => (
                   <tr key={task.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{task.title}</td>
                     <td className="px-5 py-3 text-gray-600">{task.client?.name || "-"}</td>

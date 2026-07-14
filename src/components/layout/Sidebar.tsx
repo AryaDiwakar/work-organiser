@@ -54,7 +54,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const isAdminView = role === "SUPER_ADMIN" || role === "ADMIN";
 
   const links = isAdminView
-    ? (isSuperAdmin ? adminLinks : adminLinks.filter((l) => !["Leaves", "Attendance", "Resources", "Settings"].includes(l.label)))
+    ? (isSuperAdmin ? adminLinks : adminLinks.filter((l) => !["Leaves", "Attendance", "Resources", "Credentials", "Settings"].includes(l.label)))
     : resourceLinks;
 
   return (

@@ -105,6 +105,7 @@ export default function CalendarPage() {
   const [endDate, setEndDate] = useState(now.toISOString().split("T")[0]);
   const [clientFilter, setClientFilter] = useState("");
   const [resourceFilter, setResourceFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [users, setUsers] = useState<{ id: string; name: string; role?: string }[]>([]);
@@ -128,9 +129,10 @@ export default function CalendarPage() {
   const [adhocTimerTotals, setAdhocTimerTotals] = useState<Record<string, number>>({});
   const [timeLogModal, setTimeLogModal] = useState<{ taskType: string; taskId: string; title: string } | null>(null);
 
-  const displayEntries = workDate && activeCalendarIds !== null
+  const displayEntries = (workDate && activeCalendarIds !== null
     ? entries.filter((e) => activeCalendarIds.includes(e.id))
-    : entries;
+    : entries
+  ).filter((e) => !statusFilter || e.status === statusFilter);
 
   useEffect(() => {
     fetchEntries();
@@ -576,6 +578,16 @@ export default function CalendarPage() {
             ]}
             value={clientFilter}
             onChange={(e) => setClientFilter(e.target.value)}
+          />
+        </div>
+        <div className="w-52">
+          <Select
+            options={[
+              { value: "", label: "All Statuses" },
+              ...STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
+            ]}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
           />
         </div>
         <div className="w-44">

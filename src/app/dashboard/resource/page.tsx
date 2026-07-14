@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole, formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { Calendar, Clock, CheckCircle, AlertTriangle, BarChart3, ClipboardList, Trash2, Play, Pause, Square } from "lucide-react";
@@ -54,6 +55,7 @@ export default function ResourceDashboardPage() {
   const [completing, setCompleting] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [reachModalOpen, setReachModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
   const [reachForm, setReachForm] = useState<Record<string, string>>({});
@@ -292,6 +294,29 @@ export default function ResourceDashboardPage() {
           <div className="w-44">
             <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
+          <div className="w-52">
+            <Select
+              options={[
+                { value: "", label: "All Statuses" },
+                { value: "YET_TO_BE_DONE", label: "Yet to be done" },
+                { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+                { value: "DESIGNED", label: "Designed" },
+                { value: "SHARED_TO_CLIENT", label: "Shared to client" },
+                { value: "APPROVED", label: "Approved" },
+                { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+                { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+                { value: "SCHEDULED", label: "Scheduled" },
+                { value: "POSTED", label: "Posted" },
+                { value: "REJECTED", label: "Rejected" },
+                { value: "NEW", label: "New" },
+                { value: "IN_PROGRESS", label: "In Progress" },
+                { value: "COMPLETED", label: "Completed" },
+                { value: "NOT_APPLICABLE", label: "Not Applicable" },
+              ]}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -315,14 +340,14 @@ export default function ResourceDashboardPage() {
         </div>
       )}
 
-      {adhocTasks.length > 0 && (
+      {adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-indigo-600" />
               <h2 className="text-lg font-semibold text-gray-900">My Adhoc Tasks</h2>
             </div>
-            <span className="text-sm text-gray-500">{adhocTasks.length} tasks</span>
+            <span className="text-sm text-gray-500">{adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).length} tasks</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -337,7 +362,7 @@ export default function ResourceDashboardPage() {
                   </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                  {adhocTasks.map((t) => (
+                  {adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{t.title}</td>
                     <td className="px-5 py-3 text-gray-600">{t.client?.name || "-"}</td>
@@ -410,7 +435,7 @@ export default function ResourceDashboardPage() {
             <Calendar className="h-5 w-5 text-indigo-600" />
             <h2 className="text-lg font-semibold text-gray-900">My Calendar Tasks</h2>
           </div>
-          <span className="text-sm text-gray-500">{tasks.length} entries</span>
+          <span className="text-sm text-gray-500">{tasks.filter((t) => !statusFilter || t.status === statusFilter).length} entries</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -426,8 +451,8 @@ export default function ResourceDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {tasks.length > 0 ? (
-                tasks.map((entry) => {
+              {tasks.filter((t) => !statusFilter || t.status === statusFilter).length > 0 ? (
+                tasks.filter((t) => !statusFilter || t.status === statusFilter).map((entry) => {
                   const sla = getSLAStatus({
                     status: entry.status,
                     postingDate: new Date(entry.postingDate),
