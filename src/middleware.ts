@@ -23,7 +23,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard/resource", req.url));
   }
 
-  if ((pathname.startsWith("/dashboard/admin/attendance") || pathname.startsWith("/dashboard/admin/leaves") || pathname.startsWith("/dashboard/admin/settings")) && role !== "SUPER_ADMIN") {
+  if ((pathname.startsWith("/dashboard/admin/attendance") || pathname.startsWith("/dashboard/admin/leaves") || pathname.startsWith("/dashboard/admin/settings") || pathname.startsWith("/dashboard/admin/credentials")) && role !== "SUPER_ADMIN") {
     return NextResponse.redirect(new URL("/dashboard/admin", req.url));
   }
 
