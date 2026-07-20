@@ -33,6 +33,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (body.postingDate !== undefined) updateData.postingDate = new Date(body.postingDate);
     if (body.postingTime !== undefined) updateData.postingTime = body.postingTime;
     if (body.assignedTo !== undefined) updateData.assignedTo = body.assignedTo;
+    if (body.assignedToMulti !== undefined) updateData.assignedToMulti = body.assignedToMulti;
     if (body.creativeBrief !== undefined) updateData.creativeBrief = body.creativeBrief;
     if (body.caption !== undefined) updateData.caption = body.caption;
     if (body.hashtags !== undefined) updateData.hashtags = body.hashtags;
@@ -66,7 +67,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       },
     });
 
-    return NextResponse.json(entry);
+    let assignedUsers: { id: string; name: string; email: string }[] = [];
+    if (entry.assignedToMulti && entry.assignedToMulti.length > 0) {
+      assignedUsers = await prisma.user.findMany({
+        where: { id: { in: entry.assignedToMulti } },
+        select: { id: true, name: true, email: true },
+      });
+    } else if (entry.assignedUser) {
+      assignedUsers = [entry.assignedUser];
+    }
+
+    return NextResponse.json({ ...entry, assignedUsers });
   } catch (error) {
     return NextResponse.json({ error: "Failed to update calendar entry" }, { status: 500 });
   }

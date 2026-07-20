@@ -7,7 +7,30 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { TimeLogModal } from "@/components/ui/TimeLogModal";
-import { Calendar, Clock, Play, Pause, Square, ClipboardList } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { Calendar, Clock, Play, Pause, Square, ClipboardList, Eye, Pencil } from "lucide-react";
+
+const CALENDAR_STATUS_OPTIONS = [
+  { value: "YET_TO_BE_DONE", label: "Yet to be done" },
+  { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGNED", label: "Designed" },
+  { value: "SHARED_TO_CLIENT", label: "Shared to client" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+  { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "SCHEDULED", label: "Scheduled" },
+  { value: "POSTED", label: "Posted" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
+const ADHOC_STATUS_OPTIONS = [
+  { value: "NEW", label: "New" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+  { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "NOT_APPLICABLE", label: "Not Applicable" },
+];
 
 interface CalendarEntry {
   id: string;
@@ -16,6 +39,14 @@ interface CalendarEntry {
   postingDate: string;
   status: string;
   assignedUser: { id: string; name: string } | null;
+  postType?: string;
+  platform?: string[];
+  category?: { id: string; name: string; color: string } | null;
+  creativeBrief?: string | null;
+  caption?: string | null;
+  hashtags?: string[];
+  designDirection?: string | null;
+  postingTime?: string | null;
 }
 
 interface AdhocTask {
@@ -44,6 +75,14 @@ export default function ResourceCalendarPage() {
   const [activeTimer, setActiveTimer] = useState<{ taskType: string; taskId: string; startTime: string } | null>(null);
   const [now, setNow] = useState(Date.now());
   const [timeLogModal, setTimeLogModal] = useState<{ taskType: string; taskId: string; title: string } | null>(null);
+  const [viewEntry, setViewEntry] = useState<CalendarEntry | null>(null);
+  const [editEntry, setEditEntry] = useState<CalendarEntry | null>(null);
+  const [editStatus, setEditStatus] = useState("");
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [viewAdhocTask, setViewAdhocTask] = useState<AdhocTask | null>(null);
+  const [editAdhocTask, setEditAdhocTask] = useState<AdhocTask | null>(null);
+  const [editAdhocStatus, setEditAdhocStatus] = useState("");
+  const [savingAdhocStatus, setSavingAdhocStatus] = useState(false);
 
   const displayEntries = (workDate && activeCalendarIds !== null
     ? entries.filter((e) => activeCalendarIds.includes(e.id))
@@ -166,6 +205,49 @@ export default function ResourceCalendarPage() {
 
   function getAdhocTimerElapsed(taskId: string) {
     return adhocTimerTotals[taskId] || 0;
+  }
+
+  async function handleUpdateCalendarStatus(entryId: string, newStatus: string) {
+    setSavingStatus(true);
+    try {
+      const res = await fetch(`/api/calendar/${entryId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setEditEntry(null);
+        fetchEntries();
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    } finally {
+      setSavingStatus(false);
+    }
+  }
+
+  async function handleUpdateAdhocStatus(taskId: string, newStatus: string) {
+    setSavingAdhocStatus(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setEditAdhocTask(null);
+        if (activeAdhocIds.length > 0) {
+          fetch(`/api/tasks?ids=${activeAdhocIds.join(",")}&assignedTo=${userId}`)
+            .then((r) => r.json())
+            .then((data) => setAdhocTasks(Array.isArray(data) ? data : data.data || []))
+            .catch(() => {});
+        }
+      }
+    } catch (error) {
+      console.error("Failed to update adhoc status:", error);
+    } finally {
+      setSavingAdhocStatus(false);
+    }
   }
 
   return (
@@ -294,6 +376,12 @@ export default function ResourceCalendarPage() {
                             <button onClick={() => setTimeLogModal({ taskType: "CALENDAR", taskId: entry.id, title: entry.title })} className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50" title="View time logs">
                               <Clock className="h-4 w-4" />
                             </button>
+                            <button onClick={() => setViewEntry(entry)} className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" title="View details">
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => { setEditEntry(entry); setEditStatus(entry.status); }} className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50" title="Edit status">
+                              <Pencil className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       )}
@@ -364,6 +452,12 @@ export default function ResourceCalendarPage() {
                         <button onClick={() => setTimeLogModal({ taskType: "ADHOC", taskId: task.id, title: task.title })} className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50" title="View time logs">
                           <Clock className="h-4 w-4" />
                         </button>
+                        <button onClick={() => setViewAdhocTask(task)} className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" title="View details">
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => { setEditAdhocTask(task); setEditAdhocStatus(task.status); }} className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50" title="Edit status">
+                          <Pencil className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -381,6 +475,86 @@ export default function ResourceCalendarPage() {
         taskId={timeLogModal?.taskId || ""}
         taskTitle={timeLogModal?.title || ""}
       />
+
+      {viewEntry && (
+        <Modal isOpen={!!viewEntry} onClose={() => setViewEntry(null)} title="Calendar Task Details" size="lg">
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div><span className="font-medium text-gray-500">Title:</span> <span className="text-gray-900">{viewEntry.title}</span></div>
+              <div><span className="font-medium text-gray-500">Client:</span> <span className="text-gray-900">{viewEntry.client?.name || "-"}</span></div>
+              <div><span className="font-medium text-gray-500">Type:</span> <span className="text-gray-900">{viewEntry.postType || "-"}</span></div>
+              <div><span className="font-medium text-gray-500">Category:</span> <span className="text-gray-900">{viewEntry.category?.name || "-"}</span></div>
+              <div><span className="font-medium text-gray-500">Platforms:</span> <span className="text-gray-900">{viewEntry.platform?.join(", ") || "-"}</span></div>
+              <div><span className="font-medium text-gray-500">Posting Date:</span> <span className="text-gray-900">{formatDate(new Date(viewEntry.postingDate))}{viewEntry.postingTime ? ` ${viewEntry.postingTime}` : ""}</span></div>
+              <div><span className="font-medium text-gray-500">Status:</span> <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(viewEntry.status)}`}>{getStatusLabel(viewEntry.status)}</span></div>
+            </div>
+            {viewEntry.creativeBrief && <div><span className="font-medium text-gray-500">Creative Brief:</span> <span className="text-gray-900">{viewEntry.creativeBrief}</span></div>}
+            {viewEntry.caption && <div><span className="font-medium text-gray-500">Caption:</span> <span className="text-gray-900">{viewEntry.caption}</span></div>}
+            {viewEntry.hashtags && viewEntry.hashtags.length > 0 && <div><span className="font-medium text-gray-500">Hashtags:</span> <span className="text-gray-900">{viewEntry.hashtags.join(", ")}</span></div>}
+            {viewEntry.designDirection && <div><span className="font-medium text-gray-500">Design Direction:</span> <span className="text-gray-900">{viewEntry.designDirection}</span></div>}
+          </div>
+          <div className="flex justify-end pt-4">
+            <Button variant="secondary" onClick={() => setViewEntry(null)}>Close</Button>
+          </div>
+        </Modal>
+      )}
+
+      {editEntry && (
+        <Modal isOpen={!!editEntry} onClose={() => setEditEntry(null)} title="Edit Task Status" size="md">
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              <p><span className="font-medium">Task:</span> {editEntry.title}</p>
+              <p><span className="font-medium">Client:</span> {editEntry.client?.name || "-"}</p>
+            </div>
+            <Select
+              label="Status"
+              options={CALENDAR_STATUS_OPTIONS}
+              value={editStatus}
+              onChange={(e) => setEditStatus(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" onClick={() => setEditEntry(null)}>Cancel</Button>
+              <Button onClick={() => handleUpdateCalendarStatus(editEntry.id, editStatus)} isLoading={savingStatus}>Save</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {viewAdhocTask && (
+        <Modal isOpen={!!viewAdhocTask} onClose={() => setViewAdhocTask(null)} title="Adhoc Task Details" size="md">
+          <div className="space-y-3 text-sm">
+            <div><span className="font-medium text-gray-500">Title:</span> <span className="text-gray-900">{viewAdhocTask.title}</span></div>
+            <div><span className="font-medium text-gray-500">Client:</span> <span className="text-gray-900">{viewAdhocTask.client?.name || "-"}</span></div>
+            <div><span className="font-medium text-gray-500">Deadline:</span> <span className="text-gray-900">{viewAdhocTask.deadline ? formatDate(new Date(viewAdhocTask.deadline)) : "-"}</span></div>
+            <div><span className="font-medium text-gray-500">Status:</span> <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${viewAdhocTask.status === "COMPLETED" ? "bg-green-100 text-green-700" : viewAdhocTask.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>{viewAdhocTask.status.replace(/_/g, " ")}</span></div>
+            {viewAdhocTask.description && <div><span className="font-medium text-gray-500">Description:</span> <span className="text-gray-900">{viewAdhocTask.description}</span></div>}
+          </div>
+          <div className="flex justify-end pt-4">
+            <Button variant="secondary" onClick={() => setViewAdhocTask(null)}>Close</Button>
+          </div>
+        </Modal>
+      )}
+
+      {editAdhocTask && (
+        <Modal isOpen={!!editAdhocTask} onClose={() => setEditAdhocTask(null)} title="Edit Adhoc Task Status" size="md">
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              <p><span className="font-medium">Task:</span> {editAdhocTask.title}</p>
+              <p><span className="font-medium">Client:</span> {editAdhocTask.client?.name || "-"}</p>
+            </div>
+            <Select
+              label="Status"
+              options={ADHOC_STATUS_OPTIONS}
+              value={editAdhocStatus}
+              onChange={(e) => setEditAdhocStatus(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" onClick={() => setEditAdhocTask(null)}>Cancel</Button>
+              <Button onClick={() => handleUpdateAdhocStatus(editAdhocTask.id, editAdhocStatus)} isLoading={savingAdhocStatus}>Save</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

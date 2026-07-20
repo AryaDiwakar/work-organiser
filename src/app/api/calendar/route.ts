@@ -21,7 +21,12 @@ export async function GET(req: Request) {
     const where: Record<string, unknown> = {};
 
     if (clientId) where.clientId = clientId;
-    if (assignedTo) where.assignedTo = assignedTo;
+    if (assignedTo) {
+      where.OR = [
+        { assignedTo },
+        { assignedToMulti: { has: assignedTo } },
+      ];
+    }
 
     if (startDate || endDate) {
       where.postingDate = {};
@@ -53,7 +58,18 @@ export async function GET(req: Request) {
       orderBy: { postingDate: "asc" },
     });
 
-    return NextResponse.json(entries);
+    const entriesWithMulti = await Promise.all(entries.map(async (entry) => {
+      if (entry.assignedToMulti && entry.assignedToMulti.length > 0) {
+        const users = await prisma.user.findMany({
+          where: { id: { in: entry.assignedToMulti } },
+          select: { id: true, name: true, email: true },
+        });
+        return { ...entry, assignedUsers: users };
+      }
+      return { ...entry, assignedUsers: entry.assignedUser ? [entry.assignedUser] : [] };
+    }));
+
+    return NextResponse.json(entriesWithMulti);
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch calendar entries" }, { status: 500 });
   }
@@ -76,7 +92,6 @@ export async function POST(req: Request) {
       platforms: bodyPlatforms,
       postingDate,
       postingTime,
-  assignedTo,
   assignedTo: bodyAssignedTo,
   assignedToMulti,
       caption,
@@ -100,6 +115,16 @@ export async function POST(req: Request) {
 
     const finalPlatforms = bodyPlatforms || platform || [];
 
+    let finalAssignedTo = bodyAssignedTo || null;
+    let finalAssignedToMulti: string[] = assignedToMulti || [];
+
+    if (finalAssignedToMulti.length === 0 && finalAssignedTo) {
+      finalAssignedToMulti = [finalAssignedTo];
+    }
+    if (finalAssignedToMulti.length > 0 && !finalAssignedTo) {
+      finalAssignedTo = finalAssignedToMulti[0];
+    }
+
     const entry = await prisma.calendarEntry.create({
       data: {
         clientId,
@@ -109,7 +134,8 @@ export async function POST(req: Request) {
         platform: finalPlatforms,
         postingDate: postingDateObj,
         postingTime: postingTime || null,
-        assignedTo,
+        assignedTo: finalAssignedTo,
+        assignedToMulti: finalAssignedToMulti,
         creativeBrief,
         caption,
         hashtags: hashtags || [],

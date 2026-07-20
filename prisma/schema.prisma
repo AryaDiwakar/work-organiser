@@ -151,8 +151,9 @@ model CalendarEntry {
   postedDate         DateTime?
   rejectedDate       DateTime?
 
-  assignedTo   String?
-  assignedUser User?     @relation("AssignedResource", fields: [assignedTo], references: [id])
+  assignedTo       String?
+  assignedToMulti  String[]       @default([])
+  assignedUser     User?          @relation("AssignedResource", fields: [assignedTo], references: [id])
 
   links     PostLink[]
   taskCompletions TaskCompletion[]

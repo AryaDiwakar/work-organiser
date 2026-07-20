@@ -42,6 +42,8 @@ interface CalendarEntry {
   postingDate: string;
   postingTime: string | null;
   assignedUser: { id: string; name: string } | null;
+  assignedToMulti: string[];
+  assignedUsers: { id: string; name: string }[];
   status: string;
   slaStatus: string | null;
   storyboardCompletedDate: string | null;
@@ -274,7 +276,7 @@ export default function CalendarPage() {
       postingDate: entry.postingDate?.split("T")[0] || "",
       postingTime: entry.postingTime || "",
       assignedTo: entry.assignedUser?.id || "",
-      assignedToMulti: [],
+      assignedToMulti: entry.assignedToMulti || entry.assignedUsers?.map((u) => u.id) || [],
     });
     setEditModalOpen(true);
     setError("");
@@ -329,7 +331,8 @@ export default function CalendarPage() {
         referenceLinks: form.referenceLinks.split("\n").map((r) => r.trim()).filter(Boolean),
         postingDate: form.postingDate,
         postingTime: form.postingTime,
-        assignedTo: form.assignedTo || null,
+        assignedTo: isMultiResource ? (form.assignedToMulti.length > 0 ? form.assignedToMulti[0] : null) : (form.assignedTo || null),
+        assignedToMulti: isMultiResource ? form.assignedToMulti : [],
       };
       const res = await fetch(`/api/calendar/${editingEntry.id}`, {
         method: "PUT",
@@ -656,7 +659,11 @@ export default function CalendarPage() {
                       <td className="px-4 py-3 text-gray-600">
                         {formatDate(entry.postingDate)}{entry.postingTime ? ` ${entry.postingTime}` : ""}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{entry.assignedUser?.name || "-"}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {entry.assignedUsers && entry.assignedUsers.length > 0
+                          ? entry.assignedUsers.map((u) => u.name).join(", ")
+                          : entry.assignedUser?.name || "-"}
+                      </td>
                       <td className="px-4 py-3">
                         {isAdmin ? (
                           <select

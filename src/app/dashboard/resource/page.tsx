@@ -12,6 +12,28 @@ import { TimeLogModal } from "@/components/ui/TimeLogModal";
 
 const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Twitter"];
 
+const STATUS_OPTIONS = [
+  { value: "YET_TO_BE_DONE", label: "Yet to be done" },
+  { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGNED", label: "Designed" },
+  { value: "SHARED_TO_CLIENT", label: "Shared to client" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+  { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "SCHEDULED", label: "Scheduled" },
+  { value: "POSTED", label: "Posted" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
+const ADHOC_STATUS_OPTIONS = [
+  { value: "NEW", label: "New" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+  { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "NOT_APPLICABLE", label: "Not Applicable" },
+];
+
 function getDeadlineColor(deadline: string | null, status?: string): string {
   if (!deadline) return "";
   if (status === "COMPLETED" || status === "NOT_APPLICABLE") return "text-green-600 font-semibold";
@@ -32,6 +54,14 @@ interface CalendarEntry {
   postingDate: string;
   status: string;
   assignedUser: { id: string; name: string } | null;
+  postType?: string;
+  platform?: string[];
+  category?: { id: string; name: string; color: string } | null;
+  creativeBrief?: string | null;
+  caption?: string | null;
+  hashtags?: string[];
+  designDirection?: string | null;
+  postingTime?: string | null;
 }
 
 interface AdhocTask {
@@ -64,6 +94,14 @@ export default function ResourceDashboardPage() {
   const [timerTotals, setTimerTotals] = useState<Record<string, number>>({});
   const [now, setNow] = useState(Date.now());
   const [timeLogModal, setTimeLogModal] = useState<{ taskType: string; taskId: string; title: string } | null>(null);
+  const [viewEntry, setViewEntry] = useState<CalendarEntry | null>(null);
+  const [editEntry, setEditEntry] = useState<CalendarEntry | null>(null);
+  const [editStatus, setEditStatus] = useState("");
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [viewAdhocTask, setViewAdhocTask] = useState<AdhocTask | null>(null);
+  const [editAdhocTask, setEditAdhocTask] = useState<AdhocTask | null>(null);
+  const [editAdhocStatus, setEditAdhocStatus] = useState("");
+  const [savingAdhocStatus, setSavingAdhocStatus] = useState(false);
 
   useEffect(() => {
     if (userId) fetchTasks();
@@ -269,6 +307,44 @@ export default function ResourceDashboardPage() {
     return !["POSTED", "APPROVED", "SCHEDULED"].includes(status);
   }
 
+  async function handleUpdateCalendarStatus(entryId: string, newStatus: string) {
+    setSavingStatus(true);
+    try {
+      const res = await fetch(`/api/calendar/${entryId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setEditEntry(null);
+        fetchTasks();
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    } finally {
+      setSavingStatus(false);
+    }
+  }
+
+  async function handleUpdateAdhocStatus(taskId: string, newStatus: string) {
+    setSavingAdhocStatus(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setEditAdhocTask(null);
+        fetchTasks();
+      }
+    } catch (error) {
+      console.error("Failed to update adhoc status:", error);
+    } finally {
+      setSavingAdhocStatus(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -413,6 +489,20 @@ export default function ResourceDashboardPage() {
                           </button>
                         )}
                         <button
+                          onClick={() => setViewAdhocTask(t)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
+                          title="View details"
+                        >
+                          <Calendar className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => { setEditAdhocTask(t); setEditAdhocStatus(t.status); }}
+                          className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                          title="Edit status"
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => setTimeLogModal({ taskType: "ADHOC", taskId: t.id, title: t.title })}
                           className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
                           title="View time logs"
@@ -512,6 +602,20 @@ export default function ResourceDashboardPage() {
                               <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
+                          <button
+                            onClick={() => setViewEntry(entry)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
+                            title="View details"
+                          >
+                            <Calendar className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => { setEditEntry(entry); setEditStatus(entry.status); }}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                            title="Edit status"
+                          >
+                            <ClipboardList className="h-4 w-4" />
+                          </button>
                           {entry.status === "POSTED" && isAdminUser && (
                             <Button size="sm" variant="outline" onClick={() => openReachModal(entry)}>
                               <BarChart3 className="h-4 w-4" />
@@ -562,6 +666,86 @@ export default function ResourceDashboardPage() {
         taskId={timeLogModal?.taskId || ""}
         taskTitle={timeLogModal?.title || ""}
       />
+
+      {viewEntry && (
+        <Modal isOpen={!!viewEntry} onClose={() => setViewEntry(null)} title="Calendar Task Details" size="lg">
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div><span className="font-medium text-gray-500">Title:</span> <span className="text-gray-900">{viewEntry.title}</span></div>
+              <div><span className="font-medium text-gray-500">Client:</span> <span className="text-gray-900">{viewEntry.client?.name || "-"}</span></div>
+              <div><span className="font-medium text-gray-500">Type:</span> <span className="text-gray-900">{viewEntry.postType || "-"}</span></div>
+              <div><span className="font-medium text-gray-500">Category:</span> <span className="text-gray-900">{viewEntry.category?.name || "-"}</span></div>
+              <div><span className="font-medium text-gray-500">Platforms:</span> <span className="text-gray-900">{viewEntry.platform?.join(", ") || "-"}</span></div>
+              <div><span className="font-medium text-gray-500">Posting Date:</span> <span className="text-gray-900">{formatDate(new Date(viewEntry.postingDate))}{viewEntry.postingTime ? ` ${viewEntry.postingTime}` : ""}</span></div>
+              <div><span className="font-medium text-gray-500">Status:</span> <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(viewEntry.status)}`}>{getStatusLabel(viewEntry.status)}</span></div>
+            </div>
+            {viewEntry.creativeBrief && <div><span className="font-medium text-gray-500">Creative Brief:</span> <span className="text-gray-900">{viewEntry.creativeBrief}</span></div>}
+            {viewEntry.caption && <div><span className="font-medium text-gray-500">Caption:</span> <span className="text-gray-900">{viewEntry.caption}</span></div>}
+            {viewEntry.hashtags && viewEntry.hashtags.length > 0 && <div><span className="font-medium text-gray-500">Hashtags:</span> <span className="text-gray-900">{viewEntry.hashtags.join(", ")}</span></div>}
+            {viewEntry.designDirection && <div><span className="font-medium text-gray-500">Design Direction:</span> <span className="text-gray-900">{viewEntry.designDirection}</span></div>}
+          </div>
+          <div className="flex justify-end pt-4">
+            <Button variant="secondary" onClick={() => setViewEntry(null)}>Close</Button>
+          </div>
+        </Modal>
+      )}
+
+      {editEntry && (
+        <Modal isOpen={!!editEntry} onClose={() => setEditEntry(null)} title="Edit Task Status" size="md">
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              <p><span className="font-medium">Task:</span> {editEntry.title}</p>
+              <p><span className="font-medium">Client:</span> {editEntry.client?.name || "-"}</p>
+            </div>
+            <Select
+              label="Status"
+              options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
+              value={editStatus}
+              onChange={(e) => setEditStatus(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" onClick={() => setEditEntry(null)}>Cancel</Button>
+              <Button onClick={() => handleUpdateCalendarStatus(editEntry.id, editStatus)} isLoading={savingStatus}>Save</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {viewAdhocTask && (
+        <Modal isOpen={!!viewAdhocTask} onClose={() => setViewAdhocTask(null)} title="Adhoc Task Details" size="md">
+          <div className="space-y-3 text-sm">
+            <div><span className="font-medium text-gray-500">Title:</span> <span className="text-gray-900">{viewAdhocTask.title}</span></div>
+            <div><span className="font-medium text-gray-500">Client:</span> <span className="text-gray-900">{viewAdhocTask.client?.name || "-"}</span></div>
+            <div><span className="font-medium text-gray-500">Deadline:</span> <span className="text-gray-900">{viewAdhocTask.deadline ? formatDate(new Date(viewAdhocTask.deadline)) : "-"}</span></div>
+            <div><span className="font-medium text-gray-500">Status:</span> <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${viewAdhocTask.status === "COMPLETED" ? "bg-green-100 text-green-700" : viewAdhocTask.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>{viewAdhocTask.status.replace(/_/g, " ")}</span></div>
+            {viewAdhocTask.description && <div><span className="font-medium text-gray-500">Description:</span> <span className="text-gray-900">{viewAdhocTask.description}</span></div>}
+          </div>
+          <div className="flex justify-end pt-4">
+            <Button variant="secondary" onClick={() => setViewAdhocTask(null)}>Close</Button>
+          </div>
+        </Modal>
+      )}
+
+      {editAdhocTask && (
+        <Modal isOpen={!!editAdhocTask} onClose={() => setEditAdhocTask(null)} title="Edit Adhoc Task Status" size="md">
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              <p><span className="font-medium">Task:</span> {editAdhocTask.title}</p>
+              <p><span className="font-medium">Client:</span> {editAdhocTask.client?.name || "-"}</p>
+            </div>
+            <Select
+              label="Status"
+              options={ADHOC_STATUS_OPTIONS}
+              value={editAdhocStatus}
+              onChange={(e) => setEditAdhocStatus(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" onClick={() => setEditAdhocTask(null)}>Cancel</Button>
+              <Button onClick={() => handleUpdateAdhocStatus(editAdhocTask.id, editAdhocStatus)} isLoading={savingAdhocStatus}>Save</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
