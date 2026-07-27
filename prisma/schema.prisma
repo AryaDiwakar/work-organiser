@@ -292,3 +292,29 @@ model Credential {
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
+
+enum ScopeStatus {
+  SHARED_TO_CLIENT
+  WAITING_FOR_APPROVAL
+  APPROVED
+  NOT_APPROVED
+  NEEDS_REVISION
+}
+
+model SalesLead {
+  id                  String      @id @default(cuid())
+  dateLeadEntered     DateTime    @default(now())
+  companyName         String
+  referredBy          String?
+  projectType         String
+  projectDetails      String?
+  proposedQuote       Float?
+  clientApprovedQuote Float?
+  scopeStatus         ScopeStatus @default(SHARED_TO_CLIENT)
+  statusUpdatedDate   DateTime?
+  clientContactName   String?
+  clientContactNumber String?
+  clientEmail         String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}

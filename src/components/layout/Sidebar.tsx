@@ -18,11 +18,13 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Key,
+  TrendingUp,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 
 const adminLinks = [
   { href: "/dashboard/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/admin/sales", label: "Sales", icon: TrendingUp },
   { href: "/dashboard/admin/clients", label: "Clients", icon: Building2 },
   { href: "/dashboard/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/dashboard/admin/categories", label: "Categories", icon: FolderKanban },
