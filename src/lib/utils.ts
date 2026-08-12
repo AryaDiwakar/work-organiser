@@ -148,6 +148,35 @@ export function formatDuration(seconds: number): string {
   return `${s}s`;
 }
 
+export function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+export async function fetchTimerTotals(
+  taskType: "CALENDAR" | "ADHOC",
+  ids: string[],
+  dateParam?: string
+): Promise<Record<string, number>> {
+  const totals: Record<string, number> = {};
+  const chunks = chunkArray(ids, 50);
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      const url = `/api/time-tracker?taskType=${taskType}&taskIds=${chunk.join(",")}${dateParam ? `&date=${dateParam}` : ""}`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && typeof data === "object") {
+        Object.assign(totals, data);
+      }
+    })
+  );
+  return totals;
+}
+
 export function getLeaveColor(appliedAt: Date, startDate: Date): string {
   const applied = new Date(appliedAt);
   const start = new Date(startDate);

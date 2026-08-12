@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, formatDuration, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole } from "@/lib/utils";
+import { formatDate, formatDuration, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole, fetchTimerTotals } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -174,22 +174,18 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (adhocTasks.length) {
-      const ids = adhocTasks.map((t) => t.id).join(",");
-      const dateParam = workDate ? `&date=${workDate}` : "";
-      fetch(`/api/time-tracker?taskType=ADHOC&taskIds=${ids}${dateParam}`)
-        .then((r) => r.json())
-        .then((data) => setAdhocTimerTotals(data || {}))
+      const ids = adhocTasks.map((t) => t.id);
+      fetchTimerTotals("ADHOC", ids, workDate || undefined)
+        .then((data) => setAdhocTimerTotals(data))
         .catch(() => {});
     }
   }, [adhocTasks.length, workDate]);
 
   useEffect(() => {
     if (displayEntries.length) {
-      const ids = displayEntries.map((e) => e.id).join(",");
-      const dateParam = workDate ? `&date=${workDate}` : "";
-      fetch(`/api/time-tracker?taskType=CALENDAR&taskIds=${ids}${dateParam}`)
-        .then((r) => r.json())
-        .then((data) => setTimerTotals(data || {}))
+      const ids = displayEntries.map((e) => e.id);
+      fetchTimerTotals("CALENDAR", ids, workDate || undefined)
+        .then((data) => setTimerTotals(data))
         .catch(() => {});
     }
   }, [displayEntries.length, workDate]);
@@ -375,23 +371,35 @@ export default function CalendarPage() {
     }
   }
 
+  function populateReachForm(data: {
+    linkedinReach?: number | null;
+    facebookReach?: number | null;
+    instagramReach?: number | null;
+    youtubeReach?: number | null;
+    googleReach?: number | null;
+    twitterReach?: number | null;
+  }) {
+    setReachForm({
+      Linkedin: data.linkedinReach != null ? String(data.linkedinReach) : "",
+      Facebook: data.facebookReach != null ? String(data.facebookReach) : "",
+      Instagram: data.instagramReach != null ? String(data.instagramReach) : "",
+      Youtube: data.youtubeReach != null ? String(data.youtubeReach) : "",
+      Google: data.googleReach != null ? String(data.googleReach) : "",
+      Twitter: data.twitterReach != null ? String(data.twitterReach) : "",
+    });
+  }
+
   async function openReachModal(entry: CalendarEntry) {
     setReachEntry(entry);
     setReachForm({});
     setReachModalOpen(true);
+    setError("");
     try {
       const res = await fetch(`/api/performance?calendarEntryId=${entry.id}`);
       if (!res.ok) return;
       const data = await res.json();
-      if (data && data.id) {
-        setReachForm({
-          Linkedin: String(data.linkedinReach ?? ""),
-          Facebook: String(data.facebookReach ?? ""),
-          Instagram: String(data.instagramReach ?? ""),
-          Youtube: String(data.youtubeReach ?? ""),
-          Google: String(data.googleReach ?? ""),
-          Twitter: String(data.twitterReach ?? ""),
-        });
+      if (data && (data.id || data.linkedinReach !== undefined || data.totalReach !== undefined)) {
+        populateReachForm(data);
       }
     } catch (error) {
       console.error("Failed to fetch reach:", error);
@@ -403,7 +411,7 @@ export default function CalendarPage() {
     setSavingReach(true);
     setError("");
     try {
-      const body: Record<string, any> = { calendarEntryId: reachEntry.id };
+      const body: Record<string, string | number> = { calendarEntryId: reachEntry.id };
       PLATFORMS.forEach((p) => {
         const key = p.toLowerCase() + "Reach";
         const val = reachForm[p]?.trim();
@@ -419,6 +427,8 @@ export default function CalendarPage() {
         setError(errData.error || "Failed to save reach");
         return;
       }
+      const data = await res.json();
+      populateReachForm(data);
       setReachModalOpen(false);
     } catch (error) {
       setError("Network error");

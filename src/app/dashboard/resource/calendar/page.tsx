@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, formatDuration } from "@/lib/utils";
+import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, formatDuration, fetchTimerTotals } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -141,25 +141,34 @@ export default function ResourceCalendarPage() {
 
   useEffect(() => {
     if (displayEntries.length) {
-      const ids = displayEntries.map((e) => e.id).join(",");
-      const dateParam = workDate ? `&date=${workDate}` : "";
-      fetch(`/api/time-tracker?taskType=CALENDAR&taskIds=${ids}${dateParam}`)
-        .then((r) => r.json())
-        .then((data) => setTimerTotals(data || {}))
+      const ids = displayEntries.map((e) => e.id);
+      fetchTimerTotals("CALENDAR", ids, workDate || undefined)
+        .then((data) => setTimerTotals(stripActiveSeconds(data, activeTimer)))
         .catch(() => {});
     }
   }, [displayEntries.length, workDate]);
 
   useEffect(() => {
     if (adhocTasks.length) {
-      const ids = adhocTasks.map((t) => t.id).join(",");
-      const dateParam = workDate ? `&date=${workDate}` : "";
-      fetch(`/api/time-tracker?taskType=ADHOC&taskIds=${ids}${dateParam}`)
-        .then((r) => r.json())
-        .then((data) => setAdhocTimerTotals(data || {}))
+      const ids = adhocTasks.map((t) => t.id);
+      fetchTimerTotals("ADHOC", ids, workDate || undefined)
+        .then((data) => setAdhocTimerTotals(stripActiveSeconds(data, activeTimer)))
         .catch(() => {});
     }
   }, [adhocTasks.length, workDate]);
+
+  function stripActiveSeconds(
+    totals: Record<string, number>,
+    active: { taskType: string; taskId: string; startTime: string } | null
+  ): Record<string, number> {
+    const result = { ...totals };
+    if (active) {
+      const running = Math.floor((Date.now() - new Date(active.startTime).getTime()) / 1000);
+      const key = active.taskId;
+      if (result[key] !== undefined) result[key] = Math.max(0, result[key] - running);
+    }
+    return result;
+  }
 
   async function fetchEntries() {
     setLoading(true);
@@ -178,16 +187,37 @@ export default function ResourceCalendarPage() {
   }
 
   async function handleTimerAction(action: string, taskType: string, taskId: string) {
-    await fetch("/api/time-tracker", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, taskType, taskId }),
-    });
-    const res = await fetch("/api/time-tracker");
-    const data = await res.json();
-    if (data?.active) setActiveTimer({ taskType: data.active.taskType, taskId: data.active.taskId, startTime: data.active.startTime });
-    else setActiveTimer(null);
-    setNow(Date.now());
+    try {
+      const res = await fetch("/api/time-tracker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, taskType, taskId }),
+      });
+      if (!res.ok) {
+        console.error("Timer action failed:", (await res.json())?.error);
+        return;
+      }
+      const activeRes = await fetch("/api/time-tracker");
+      const data = await activeRes.json();
+      const freshActive = data?.active
+        ? { taskType: data.active.taskType, taskId: data.active.taskId, startTime: data.active.startTime }
+        : null;
+      setActiveTimer(freshActive);
+      const strip = (totals: Record<string, number>) => stripActiveSeconds(totals, freshActive);
+      if (displayEntries.length) {
+        fetchTimerTotals("CALENDAR", displayEntries.map((e) => e.id), workDate || undefined)
+          .then((d) => setTimerTotals(strip(d)))
+          .catch(() => {});
+      }
+      if (adhocTasks.length) {
+        fetchTimerTotals("ADHOC", adhocTasks.map((t) => t.id), workDate || undefined)
+          .then((d) => setAdhocTimerTotals(strip(d)))
+          .catch(() => {});
+      }
+      setNow(Date.now());
+    } catch (error) {
+      console.error("Failed to handle timer action:", error);
+    }
   }
 
   function isTimerRunning(taskType: string, taskId: string) {
@@ -204,7 +234,12 @@ export default function ResourceCalendarPage() {
   }
 
   function getAdhocTimerElapsed(taskId: string) {
-    return adhocTimerTotals[taskId] || 0;
+    const completed = adhocTimerTotals[taskId] || 0;
+    if (isTimerRunning("ADHOC", taskId) && activeTimer) {
+      const running = Math.floor((now - new Date(activeTimer.startTime).getTime()) / 1000);
+      return completed + running;
+    }
+    return completed;
   }
 
   async function handleUpdateCalendarStatus(entryId: string, newStatus: string) {

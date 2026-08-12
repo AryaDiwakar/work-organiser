@@ -1,17 +1,20 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 const SALES_PASSWORD = "GoDrive";
 
 export default function SalesLayout({ children }: { children: React.ReactNode }) {
-  const [authenticated, setAuthenticated] = useState(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("sales_auth") === "true";
-    }
-    return false;
-  });
+  const pathname = usePathname();
+  const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setAuthenticated(false);
+    setPassword("");
+    setError("");
+  }, [pathname]);
 
   if (authenticated) {
     return <>{children}</>;
@@ -20,7 +23,6 @@ export default function SalesLayout({ children }: { children: React.ReactNode })
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password === SALES_PASSWORD) {
-      sessionStorage.setItem("sales_auth", "true");
       setAuthenticated(true);
       setError("");
     } else {

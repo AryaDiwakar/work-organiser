@@ -3,6 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+function toDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -42,6 +49,8 @@ export async function GET(req: Request) {
     });
 
     const totalDays = new Date(year, month, 0).getDate();
+    const monthStartKey = toDateKey(dateGte);
+    const monthEndKey = toDateKey(new Date(year, month, 0));
 
     const summary = users.map((user) => {
       const userAttendance = attendanceRecords.filter((r) => r.userId === user.id);
@@ -58,6 +67,18 @@ export async function GET(req: Request) {
         .filter((l) => l.type === "permission")
         .reduce((sum, l) => sum + (l.permissionHours || 0), 0);
 
+      const leaveDates = new Set<string>();
+      userLeaves.forEach((l) => {
+        const start = new Date(l.startDate);
+        const end = new Date(l.endDate);
+        const cur = new Date(start);
+        while (cur <= end) {
+          const key = toDateKey(cur);
+          if (key >= monthStartKey && key <= monthEndKey) leaveDates.add(key);
+          cur.setDate(cur.getDate() + 1);
+        }
+      });
+
       return {
         userId: user.id,
         name: user.name,
@@ -67,6 +88,7 @@ export async function GET(req: Request) {
         leaveDays,
         totalHours: Math.round(totalHours * 100) / 100,
         permissionHours,
+        leaveDates: Array.from(leaveDates),
         attendance: userAttendance.map((r) => ({
           date: r.date,
           loginTime: r.loginTime,

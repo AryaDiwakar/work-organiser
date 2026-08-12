@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { getStatusLabel, formatDate, formatTime, formatDuration } from "@/lib/utils";
+import { getStatusLabel, formatDate, formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
@@ -15,6 +15,40 @@ import {
 
 const PIE_COLORS = ["#6366f1", "#22c55e", "#eab308", "#ef4444", "#3b82f6", "#ec4899"];
 type ReportTab = "client" | "attendance" | "time";
+
+function toDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function hhmm(date: string | null | undefined): string {
+  if (!date) return "";
+  const d = new Date(date);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+interface AttReportDay {
+  date: string;
+  loginTime: string | null;
+  logoutTime: string | null;
+  hoursWorked: number | null;
+  status: string;
+}
+
+interface AttReportSummaryRow {
+  userId: string;
+  name: string;
+  email: string;
+  presentDays: number;
+  absentDays: number;
+  leaveDays: number;
+  totalHours: number;
+  permissionHours: number;
+  leaveDates: string[];
+  attendance: AttReportDay[];
+}
 
 export default function ReportsPage() {
   const { data: session } = useSession();
@@ -134,15 +168,27 @@ export default function ReportsPage() {
 
   function downloadAttendanceExcel() {
     if (!attReport) return;
-    const summaryRows = (attReport.summary || []).map((s: any) => ({
-      "Resource": s.name,
-      "Present": s.presentDays,
-      "Absent": s.absentDays,
-      "Leaves": s.leaveDays,
-      "Total Hours": s.totalHours,
-      "Permission Hours": s.permissionHours,
-    }));
-    const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+    const totalDays = attReport.totalDays || 0;
+    const dayHeaders = Array.from({ length: totalDays }, (_, i) => String(i + 1).padStart(2, "0"));
+    const matrixRows = (attReport.summary as AttReportSummaryRow[]).map((s) => {
+      const attByDay = new Map<string, AttReportDay>();
+      s.attendance.forEach((a) => attByDay.set(toDateKey(new Date(a.date)), a));
+      const leaveDates = new Set(s.leaveDates || []);
+      const row: Record<string, string> = { Resource: s.name };
+      dayHeaders.forEach((day, i) => {
+        const key = toDateKey(new Date(attReport.year, attReport.month - 1, i + 1));
+        if (leaveDates.has(key)) {
+          row[day] = "LEAVE";
+        } else if (attByDay.has(key)) {
+          const a = attByDay.get(key);
+          row[day] = a ? `${hhmm(a.loginTime)}/${hhmm(a.logoutTime)}` : "";
+        } else {
+          row[day] = "";
+        }
+      });
+      return row;
+    });
+    const ws1 = XLSX.utils.json_to_sheet(matrixRows, { header: ["Resource", ...dayHeaders] });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws1, "Attendance");
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -568,39 +614,56 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  {attReport.summary?.map((s: any) => s.attendance?.length > 0 && (
-                    <div key={s.userId} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                      <div className="p-4 border-b border-gray-200">
-                        <h3 className="text-base font-semibold text-gray-900">{s.name} - Daily Log</h3>
+                  {attReport.summary?.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900">Daily Attendance Matrix</h2>
+                        <span className="text-xs text-gray-400">Check-in / Check-out · LEAVE = approved leave · blank = absent</span>
                       </div>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-xs">
                           <thead>
                             <tr className="bg-gray-50 text-left text-gray-500">
-                              <th className="px-4 py-3 font-medium">Date</th>
-                              <th className="px-4 py-3 font-medium">Login</th>
-                              <th className="px-4 py-3 font-medium">Logout</th>
-                              <th className="px-4 py-3 font-medium">Hours</th>
-                              <th className="px-4 py-3 font-medium">Status</th>
+                              <th className="px-4 py-3 font-medium whitespace-nowrap sticky left-0 bg-gray-50 z-10">Resource</th>
+                              {Array.from({ length: attReport.totalDays || 0 }, (_, i) => (
+                                <th key={i} className="px-2 py-3 font-medium text-center">{String(i + 1).padStart(2, "0")}</th>
+                              ))}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
-                            {s.attendance.map((a: any) => (
-                              <tr key={a.date} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 text-gray-900">{formatDate(a.date)}</td>
-                                <td className="px-4 py-3 text-gray-600">{formatTime(a.loginTime)}</td>
-                                <td className="px-4 py-3 text-gray-600">{formatTime(a.logoutTime)}</td>
-                                <td className="px-4 py-3 text-gray-600">{a.hoursWorked ? `${a.hoursWorked}h` : "-"}</td>
-                                <td className="px-4 py-3">
-                                  <Badge variant={a.status === "present" ? "success" : "danger"}>{a.status}</Badge>
-                                </td>
-                              </tr>
-                            ))}
+                            {attReport.summary.map((s: AttReportSummaryRow) => {
+                              const attByDay = new Map<string, AttReportDay>();
+                              s.attendance.forEach((a) => attByDay.set(toDateKey(new Date(a.date)), a));
+                              const leaveDates = new Set(s.leaveDates || []);
+                              return (
+                                <tr key={s.userId} className="hover:bg-gray-50">
+                                  <td className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white z-10">{s.name}</td>
+                                  {Array.from({ length: attReport.totalDays || 0 }, (_, i) => {
+                                    const key = toDateKey(new Date(attReport.year, attReport.month - 1, i + 1));
+                                    let content: string;
+                                    let cls = "text-gray-400";
+                                    if (leaveDates.has(key)) {
+                                      content = "LEAVE";
+                                      cls = "text-amber-600 font-medium";
+                                    } else if (attByDay.has(key)) {
+                                      const a = attByDay.get(key);
+                                      content = a ? `${hhmm(a.loginTime)}/${hhmm(a.logoutTime)}` : "";
+                                      cls = "text-gray-900 font-mono whitespace-nowrap";
+                                    } else {
+                                      content = "";
+                                    }
+                                    return (
+                                      <td key={i} className={`px-2 py-2 text-center ${cls}`}>{content}</td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               ) : (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">

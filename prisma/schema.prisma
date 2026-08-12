@@ -83,6 +83,7 @@ model Client {
   calendars    CalendarEntry[]
   adhocTasks   AdhocTask[]
   credentials  Credential[]
+  campaigns    Campaign[]
 }
 
 model Category {
@@ -317,4 +318,63 @@ model SalesLead {
   clientEmail         String?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
+}
+
+enum CampaignType {
+  AWARENESS
+  TRAFFIC
+  GOOGLE_ADS
+  GOOGLE_SHOPPING
+  SALES
+  ENGAGEMENT
+  LEADS
+  APP_PROMOTION
+  OTHERS
+}
+
+enum BudgetType {
+  DAILY
+  TOTAL
+}
+
+model Campaign {
+  id           String       @id @default(cuid())
+  clientId     String
+  name         String
+  campaignType CampaignType @default(AWARENESS)
+  customType   String?
+  startDate    DateTime
+  endDate      DateTime
+  budgetType   BudgetType   @default(DAILY)
+  dailyBudget  Float?
+  totalBudget  Float?
+  metrics      String[]     @default([])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  client   Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  dailyData CampaignDailyData[]
+
+  @@index([clientId])
+}
+
+model CampaignDailyData {
+  id             String   @id @default(cuid())
+  campaignId     String
+  date           DateTime
+  reach          Float?
+  impressions    Float?
+  engagement     Float?
+  sales          Float?
+  appInstalls    Float?
+  inAppPurchases Float?
+  costPerResult  Float?
+  amountSpent    Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([date])
 }

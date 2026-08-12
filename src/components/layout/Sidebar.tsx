@@ -19,6 +19,7 @@ import {
   PanelLeftOpen,
   Key,
   TrendingUp,
+  Megaphone,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 
@@ -27,6 +28,7 @@ const adminLinks = [
   { href: "/dashboard/admin/sales", label: "Sales", icon: TrendingUp },
   { href: "/dashboard/admin/clients", label: "Clients", icon: Building2 },
   { href: "/dashboard/admin/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/dashboard/admin/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/dashboard/admin/categories", label: "Categories", icon: FolderKanban },
   { href: "/dashboard/admin/tasks", label: "Adhoc Tasks", icon: ClipboardList },
   { href: "/dashboard/admin/resources", label: "Resources", icon: Users },

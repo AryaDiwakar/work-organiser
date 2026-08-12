@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole, formatDuration } from "@/lib/utils";
+import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, isAdminRole, formatDuration, fetchTimerTotals } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -138,26 +138,23 @@ export default function ResourceDashboardPage() {
 
   async function fetchAllTimerTotals() {
     try {
-      const allIds = [
-        ...tasks.map((t) => ({ taskType: "CALENDAR" as const, taskId: t.id })),
-        ...adhocTasks.map((t) => ({ taskType: "ADHOC" as const, taskId: t.id })),
-      ];
-      if (!allIds.length) return;
-      const results = await Promise.all(
-        allIds.map(async ({ taskType, taskId }) => {
-          const res = await fetch(`/api/time-tracker?taskType=${taskType}&taskId=${taskId}`);
-          const data = await res.json();
-          const entries: any[] = Array.isArray(data) ? data : [];
-          let completed = 0;
-          for (const e of entries) {
-            if (e.endTime) {
-              completed += Math.floor((new Date(e.endTime).getTime() - new Date(e.startTime).getTime()) / 1000);
-            }
-          }
-          return { key: `${taskType}_${taskId}`, completed };
-        })
-      );
-      setTimerTotals(Object.fromEntries(results.map((r) => [r.key, r.completed])));
+      const totals: Record<string, number> = {};
+      if (tasks.length) {
+        const cal = await fetchTimerTotals("CALENDAR", tasks.map((t) => t.id));
+        for (const [id, secs] of Object.entries(cal)) totals[`CALENDAR_${id}`] = secs;
+      }
+      if (adhocTasks.length) {
+        const adhoc = await fetchTimerTotals("ADHOC", adhocTasks.map((t) => t.id));
+        for (const [id, secs] of Object.entries(adhoc)) totals[`ADHOC_${id}`] = secs;
+      }
+      if (activeTimer) {
+        const key = `${activeTimer.taskType}_${activeTimer.taskId}`;
+        const running = Math.floor((Date.now() - new Date(activeTimer.startTime).getTime()) / 1000);
+        if (totals[key] !== undefined) {
+          totals[key] = Math.max(0, totals[key] - running);
+        }
+      }
+      setTimerTotals(totals);
     } catch (error) {
       console.error("Failed to fetch timer totals:", error);
     }
@@ -213,6 +210,24 @@ export default function ResourceDashboardPage() {
     }
   }
 
+  function populateReachForm(data: {
+    linkedinReach?: number | null;
+    facebookReach?: number | null;
+    instagramReach?: number | null;
+    youtubeReach?: number | null;
+    googleReach?: number | null;
+    twitterReach?: number | null;
+  }) {
+    setReachForm({
+      Linkedin: data.linkedinReach != null ? String(data.linkedinReach) : "",
+      Facebook: data.facebookReach != null ? String(data.facebookReach) : "",
+      Instagram: data.instagramReach != null ? String(data.instagramReach) : "",
+      Youtube: data.youtubeReach != null ? String(data.youtubeReach) : "",
+      Google: data.googleReach != null ? String(data.googleReach) : "",
+      Twitter: data.twitterReach != null ? String(data.twitterReach) : "",
+    });
+  }
+
   async function openReachModal(entry: CalendarEntry) {
     setSelectedEntry(entry);
     setReachForm({});
@@ -221,15 +236,8 @@ export default function ResourceDashboardPage() {
       const res = await fetch(`/api/performance?calendarEntryId=${entry.id}`);
       if (!res.ok) return;
       const data = await res.json();
-      if (data && data.id) {
-        setReachForm({
-          Linkedin: String(data.linkedinReach ?? ""),
-          Facebook: String(data.facebookReach ?? ""),
-          Instagram: String(data.instagramReach ?? ""),
-          Youtube: String(data.youtubeReach ?? ""),
-          Google: String(data.googleReach ?? ""),
-          Twitter: String(data.twitterReach ?? ""),
-        });
+      if (data && (data.id || data.linkedinReach !== undefined || data.totalReach !== undefined)) {
+        populateReachForm(data);
       }
     } catch (error) {
       console.error("Failed to fetch reach:", error);
@@ -240,7 +248,7 @@ export default function ResourceDashboardPage() {
     if (!selectedEntry) return;
     setSavingReach(true);
     try {
-      const body: Record<string, any> = { calendarEntryId: selectedEntry.id };
+      const body: Record<string, string | number> = { calendarEntryId: selectedEntry.id };
       PLATFORMS.forEach((p) => {
         const key = p.toLowerCase() + "Reach";
         const val = reachForm[p]?.trim();
@@ -256,6 +264,8 @@ export default function ResourceDashboardPage() {
         console.error("Failed to save reach:", errData.error);
         return;
       }
+      const data = await res.json();
+      populateReachForm(data);
       setReachModalOpen(false);
     } catch (error) {
       console.error("Failed to save reach:", error);
@@ -276,11 +286,15 @@ export default function ResourceDashboardPage() {
 
   async function handleTimerAction(action: string, taskType: string, taskId: string) {
     try {
-      await fetch("/api/time-tracker", {
+      const res = await fetch("/api/time-tracker", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, taskType, taskId }),
       });
+      if (!res.ok) {
+        console.error("Timer action failed:", (await res.json())?.error);
+        return;
+      }
       await fetchActiveTimer();
       await fetchAllTimerTotals();
       setNow(Date.now());

@@ -130,7 +130,6 @@ export default function ClientsPage() {
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
                 <th className="px-5 py-3 font-medium whitespace-nowrap">Name</th>
-                <th className="px-5 py-3 font-medium whitespace-nowrap">Website</th>
                 <th className="px-5 py-3 font-medium whitespace-nowrap">Project</th>
                 <th className="px-5 py-3 font-medium text-center whitespace-nowrap">Status</th>
                 <th className="px-5 py-3 font-medium whitespace-nowrap">Created</th>
@@ -149,7 +148,6 @@ export default function ClientsPage() {
                         {client.name}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{client.website || "-"}</td>
                     <td className="px-5 py-3 text-gray-600">{client.project || "-"}</td>
                     <td className="px-5 py-3 text-center">
                       <Badge variant={client.isActive ? "success" : "danger"}>
@@ -176,7 +174,7 @@ export default function ClientsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
                     No clients found. Click &quot;Add Client&quot; to create one.
                   </td>
                 </tr>
