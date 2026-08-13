@@ -46,6 +46,7 @@ export async function POST(req: Request) {
       dailyBudget,
       totalBudget,
       metrics,
+      leadsFormQuestions,
     } = body;
 
     if (!clientId) {
@@ -78,6 +79,10 @@ export async function POST(req: Request) {
       ? metrics.filter((m: string) => validMetricKeys.includes(m))
       : [];
 
+    const cleanLeadsFormQuestions = Array.isArray(leadsFormQuestions)
+      ? leadsFormQuestions.map((q: string) => String(q).trim()).filter(Boolean)
+      : [];
+
     const campaign = await prisma.campaign.create({
       data: {
         clientId,
@@ -90,6 +95,7 @@ export async function POST(req: Request) {
         dailyBudget: budgetType === "DAILY" ? parseFloat(dailyBudget) : null,
         totalBudget: budgetType === "TOTAL" ? parseFloat(totalBudget) : null,
         metrics: cleanMetrics,
+        leadsForm: campaignType === "LEADS" ? { questions: cleanLeadsFormQuestions } : {},
       },
     });
 

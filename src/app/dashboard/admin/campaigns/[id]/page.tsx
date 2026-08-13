@@ -22,6 +22,15 @@ interface DailyData {
   inAppPurchases: number | null;
   costPerResult: number | null;
   amountSpent: number | null;
+  leads: number | null;
+}
+
+interface CampaignLead {
+  id: string;
+  name: string;
+  phone: string | null;
+  answers: Record<string, string>;
+  createdAt: string;
 }
 
 interface Campaign {
@@ -36,6 +45,7 @@ interface Campaign {
   dailyBudget: number | null;
   totalBudget: number | null;
   metrics: string[];
+  leadsForm?: { questions?: string[] };
   dailyData: DailyData[];
 }
 
@@ -71,6 +81,10 @@ export default function CampaignDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<DailyData | null>(null);
   const [success, setSuccess] = useState("");
+  const [leads, setLeads] = useState<CampaignLead[]>([]);
+  const [leadForm, setLeadForm] = useState<{ id?: string; name: string; phone: string; answers: Record<string, string> }>({ name: "", phone: "", answers: {} });
+  const [savingLead, setSavingLead] = useState(false);
+  const [leadError, setLeadError] = useState("");
 
   async function loadCampaign() {
     try {
@@ -98,6 +112,22 @@ export default function CampaignDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!id || !dataDate) return;
+    let cancelled = false;
+    fetch(`/api/campaigns/${id}/leads?date=${dataDate}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setLeads(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setLeads([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, dataDate]);
+
   function initDate() {
     if (!campaign) return "";
     const start = toDateInputValue(campaign.startDate);
@@ -111,6 +141,8 @@ export default function CampaignDetailPage() {
     setSuccess("");
     setDataForm({});
     setDataDate(initDate());
+    setLeadForm({ name: "", phone: "", answers: {} });
+    setLeadError("");
   }
 
   function handleEditData(row: DailyData) {
@@ -123,6 +155,8 @@ export default function CampaignDetailPage() {
     }
     const spent = metricValue(row, "amountSpent");
     next.amountSpent = spent != null ? String(spent) : "";
+    const leadsVal = metricValue(row, "leads");
+    next.leads = leadsVal != null ? String(leadsVal) : "";
     setDataForm(next);
   }
 
@@ -142,6 +176,10 @@ export default function CampaignDetailPage() {
       }
       const spent = dataForm.amountSpent?.trim();
       body.amountSpent = spent ? parseFloat(spent) : null;
+      if (campaign.campaignType === "LEADS") {
+        const leadsVal = dataForm.leads?.trim();
+        body.leads = leadsVal ? parseInt(leadsVal, 10) : null;
+      }
       const res = await fetch(`/api/campaigns/${campaign.id}/data`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -181,6 +219,79 @@ export default function CampaignDetailPage() {
     }
   }
 
+  function resetLeadForm() {
+    setLeadForm({ name: "", phone: "", answers: {} });
+    setLeadError("");
+  }
+
+  function editLead(lead: CampaignLead) {
+    setLeadError("");
+    setLeadForm({
+      id: lead.id,
+      name: lead.name,
+      phone: lead.phone || "",
+      answers: lead.answers || {},
+    });
+  }
+
+  async function handleSaveLead() {
+    if (!campaign || !dataDate) {
+      setLeadError("Please select a date");
+      return;
+    }
+    if (!leadForm.name.trim()) {
+      setLeadError("Name is required");
+      return;
+    }
+    setSavingLead(true);
+    setLeadError("");
+    try {
+      const body = {
+        date: dataDate,
+        name: leadForm.name,
+        phone: leadForm.phone,
+        answers: leadForm.answers,
+      };
+      const res = await fetch(
+        leadForm.id
+          ? `/api/campaigns/${campaign.id}/leads/${leadForm.id}`
+          : `/api/campaigns/${campaign.id}/leads`,
+        {
+          method: leadForm.id ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!res.ok) {
+        const errData = await res.json();
+        setLeadError(errData.error || "Failed to save lead");
+        return;
+      }
+      await fetch(`/api/campaigns/${campaign.id}/leads?date=${dataDate}`)
+        .then((r) => r.json())
+        .then((data) => setLeads(Array.isArray(data) ? data : []));
+      await loadCampaign();
+      resetLeadForm();
+    } catch {
+      setLeadError("Network error");
+    } finally {
+      setSavingLead(false);
+    }
+  }
+
+  async function handleDeleteLead(lead: CampaignLead) {
+    if (!campaign) return;
+    try {
+      const res = await fetch(`/api/campaigns/${campaign.id}/leads/${lead.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+        await loadCampaign();
+      }
+    } catch {
+      console.error("Failed to delete lead");
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -199,7 +310,10 @@ export default function CampaignDetailPage() {
 
   const showAmountSpentMetric = !campaign.metrics.includes("amountSpent");
   const formMetrics = campaign.metrics.filter((m) => m !== "amountSpent");
-  const tableMetrics = showAmountSpentMetric ? [...campaign.metrics, "amountSpent"] : campaign.metrics;
+  const baseTableMetrics = showAmountSpentMetric ? [...campaign.metrics, "amountSpent"] : campaign.metrics;
+  const isLeadsCampaign = campaign.campaignType === "LEADS";
+  const tableMetrics = isLeadsCampaign ? [...baseTableMetrics, "leads"] : baseTableMetrics;
+  const leadsQuestions = campaign.leadsForm?.questions || [];
 
   const daysInCampaign = Math.max(
     1,
@@ -216,10 +330,16 @@ export default function CampaignDetailPage() {
   if (showAmountSpentMetric) {
     metricTotals.amountSpent = totalSpent;
   }
+  if (isLeadsCampaign) {
+    metricTotals.leads = campaign.dailyData.reduce((sum, d) => sum + (d.leads || 0), 0);
+  }
+
+  const chartMetrics = isLeadsCampaign ? [...campaign.metrics, "leads"] : campaign.metrics;
 
   const chartData = campaign.dailyData.map((d) => {
     const point: Record<string, string | number | null> = { date: formatDate(d.date) };
     for (const m of campaign.metrics) point[m] = metricValue(d, m);
+    if (isLeadsCampaign) point.leads = metricValue(d, "leads");
     return point;
   });
 
@@ -298,7 +418,7 @@ export default function CampaignDetailPage() {
               value={dataDate}
               onChange={(e) => setDataDate(e.target.value)}
             />
-            {campaign.metrics.length > 0 || showAmountSpentMetric ? (
+            {campaign.metrics.length > 0 || showAmountSpentMetric || isLeadsCampaign ? (
               <div className="grid grid-cols-2 gap-4">
                 {formMetrics.map((m) => (
                   <Input
@@ -319,6 +439,17 @@ export default function CampaignDetailPage() {
                   onChange={(e) => setDataForm({ ...dataForm, amountSpent: e.target.value })}
                   placeholder="0"
                 />
+                {isLeadsCampaign && (
+                  <Input
+                    label="Leads (count)"
+                    type="number"
+                    step="1"
+                    min={0}
+                    value={dataForm.leads || ""}
+                    onChange={(e) => setDataForm({ ...dataForm, leads: e.target.value })}
+                    placeholder="0"
+                  />
+                )}
               </div>
             ) : (
               <p className="text-sm text-gray-400">No metrics were selected for this campaign.</p>
@@ -411,11 +542,113 @@ export default function CampaignDetailPage() {
         </div>
       </div>
 
+      {isLeadsCampaign && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Leads</h2>
+          <p className="text-sm text-gray-500 mb-5">
+            {dataDate ? `Leads for ${formatDate(dataDate)}` : "Select a date above to add leads."}
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-3">{leadForm.id ? "Edit Lead" : "Add Lead"}</h3>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Name *"
+                    value={leadForm.name}
+                    onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                    placeholder="Lead name"
+                  />
+                  <Input
+                    label="Phone"
+                    value={leadForm.phone}
+                    onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                    placeholder="Phone number"
+                  />
+                </div>
+                {leadsQuestions.map((q, i) => (
+                  <Input
+                    key={i}
+                    label={q}
+                    value={leadForm.answers[q] || ""}
+                    onChange={(e) => setLeadForm({ ...leadForm, answers: { ...leadForm.answers, [q]: e.target.value } })}
+                    placeholder="Answer"
+                  />
+                ))}
+                {leadError && <p className="text-sm text-red-600">{leadError}</p>}
+                <div className="flex items-center gap-3">
+                  <Button onClick={handleSaveLead} isLoading={savingLead}>
+                    {leadForm.id ? "Update Lead" : "Add Lead"}
+                  </Button>
+                  {leadForm.id && (
+                    <Button variant="secondary" onClick={resetLeadForm}>
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-left text-gray-500">
+                    <th className="px-4 py-2 font-medium">Name</th>
+                    <th className="px-4 py-2 font-medium">Phone</th>
+                    {leadsQuestions.map((q, i) => (
+                      <th key={i} className="px-4 py-2 font-medium">{q}</th>
+                    ))}
+                    <th className="px-4 py-2 font-medium text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {leads.length > 0 ? (
+                    leads.map((lead) => (
+                      <tr key={lead.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-gray-900 font-medium">{lead.name}</td>
+                        <td className="px-4 py-2 text-gray-600">{lead.phone || "-"}</td>
+                        {leadsQuestions.map((q, i) => (
+                          <td key={i} className="px-4 py-2 text-gray-600">{lead.answers?.[q] || "-"}</td>
+                        ))}
+                        <td className="px-4 py-2">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => editLead(lead)}
+                              className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                              title="Edit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteLead(lead)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={leadsQuestions.length + 3} className="px-4 py-8 text-center text-gray-400">
+                        No leads recorded for this date.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Campaign Performance</h2>
         {chartData.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {campaign.metrics.map((m) => {
+            {chartMetrics.map((m) => {
               const hasData = chartData.some((p) => (p[m] as number | null) != null);
               if (!hasData) return null;
               return (

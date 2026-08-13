@@ -60,6 +60,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       dailyBudget,
       totalBudget,
       metrics,
+      leadsFormQuestions,
     } = body;
 
     if (!clientId || !name?.trim() || !startDate || !endDate) {
@@ -86,6 +87,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ? metrics.filter((m: string) => validMetricKeys.includes(m))
       : [];
 
+    const cleanLeadsFormQuestions = Array.isArray(leadsFormQuestions)
+      ? leadsFormQuestions.map((q: string) => String(q).trim()).filter(Boolean)
+      : [];
+
     const campaign = await prisma.campaign.update({
       where: { id },
       data: {
@@ -99,6 +104,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         dailyBudget: budgetType === "DAILY" ? parseFloat(dailyBudget) : null,
         totalBudget: budgetType === "TOTAL" ? parseFloat(totalBudget) : null,
         metrics: cleanMetrics,
+        leadsForm: campaignType === "LEADS" ? { questions: cleanLeadsFormQuestions } : {},
       },
     });
 

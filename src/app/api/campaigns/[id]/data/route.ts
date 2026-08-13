@@ -52,6 +52,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       inAppPurchases: toNumber(body.inAppPurchases),
       costPerResult: toNumber(body.costPerResult),
       amountSpent: toNumber(body.amountSpent),
+      leads: toNumber(body.leads) != null ? Math.round(toNumber(body.leads)!) : null,
     };
 
     const entry = await prisma.campaignDailyData.upsert({

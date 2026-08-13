@@ -22,6 +22,7 @@ interface Campaign {
   dailyBudget: number | null;
   totalBudget: number | null;
   metrics: string[];
+  leadsForm?: { questions?: string[] };
   createdAt: string;
 }
 
@@ -36,6 +37,7 @@ interface CampaignForm {
   dailyBudget: string;
   totalBudget: string;
   metrics: string[];
+  leadsFormQuestions: string[];
 }
 
 const defaultForm: CampaignForm = {
@@ -49,6 +51,7 @@ const defaultForm: CampaignForm = {
   dailyBudget: "",
   totalBudget: "",
   metrics: [],
+  leadsFormQuestions: [],
 };
 
 function toDateInputValue(value: string): string {
@@ -85,11 +88,30 @@ export default function CampaignsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [campaignFilter, setCampaignFilter] = useState("");
+  const [clientFilter, setClientFilter] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
 
   useEffect(() => {
     fetchCampaigns();
     fetchClients();
   }, []);
+
+  const filterCampaignOptions = campaigns.map((c) => ({ value: c.id, label: c.name }));
+  const filterClientOptions = Array.from(
+    new Map(
+      campaigns.filter((c) => c.client).map((c) => [c.client!.id, { value: c.client!.id, label: c.client!.name }])
+    ).values()
+  );
+
+  const filteredCampaigns = campaigns.filter((c) => {
+    if (campaignFilter && c.id !== campaignFilter) return false;
+    if (clientFilter && c.client?.id !== clientFilter) return false;
+    if (startDateFilter && toDateInputValue(c.endDate) < startDateFilter) return false;
+    if (endDateFilter && toDateInputValue(c.startDate) > endDateFilter) return false;
+    return true;
+  });
 
   async function fetchCampaigns() {
     try {
@@ -133,9 +155,29 @@ export default function CampaignsPage() {
       dailyBudget: campaign.dailyBudget != null ? String(campaign.dailyBudget) : "",
       totalBudget: campaign.totalBudget != null ? String(campaign.totalBudget) : "",
       metrics: campaign.metrics || [],
+      leadsFormQuestions: campaign.leadsForm?.questions || [],
     });
     setError("");
     setModalOpen(true);
+  }
+
+  function addLeadsQuestion() {
+    setForm((prev) => ({ ...prev, leadsFormQuestions: [...prev.leadsFormQuestions, ""] }));
+  }
+
+  function updateLeadsQuestion(index: number, value: string) {
+    setForm((prev) => {
+      const next = [...prev.leadsFormQuestions];
+      next[index] = value;
+      return { ...prev, leadsFormQuestions: next };
+    });
+  }
+
+  function removeLeadsQuestion(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      leadsFormQuestions: prev.leadsFormQuestions.filter((_, i) => i !== index),
+    }));
   }
 
   function toggleMetric(metric: string) {
@@ -195,6 +237,7 @@ export default function CampaignsPage() {
         dailyBudget: form.budgetType === "DAILY" ? form.dailyBudget : null,
         totalBudget: form.budgetType === "TOTAL" ? form.totalBudget : null,
         metrics: form.metrics,
+        leadsFormQuestions: form.leadsFormQuestions,
       };
       const url = editingCampaign ? `/api/campaigns/${editingCampaign.id}` : "/api/campaigns";
       const method = editingCampaign ? "PUT" : "POST";
@@ -265,6 +308,49 @@ export default function CampaignsPage() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-end gap-4 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="w-56">
+          <Select
+            options={[
+              { value: "", label: "All Campaigns" },
+              ...filterCampaignOptions,
+            ]}
+            value={campaignFilter}
+            onChange={(e) => setCampaignFilter(e.target.value)}
+          />
+        </div>
+        <div className="w-56">
+          <Select
+            options={[
+              { value: "", label: "All Clients" },
+              ...filterClientOptions,
+            ]}
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+          />
+        </div>
+        <div className="w-44">
+          <Input type="date" value={startDateFilter} onChange={(e) => setStartDateFilter(e.target.value)} />
+        </div>
+        <span className="text-gray-400 pb-2">to</span>
+        <div className="w-44">
+          <Input type="date" value={endDateFilter} onChange={(e) => setEndDateFilter(e.target.value)} />
+        </div>
+        {(campaignFilter || clientFilter || startDateFilter || endDateFilter) && (
+          <button
+            onClick={() => {
+              setCampaignFilter("");
+              setClientFilter("");
+              setStartDateFilter("");
+              setEndDateFilter("");
+            }}
+            className="text-sm text-indigo-600 hover:text-indigo-800 pb-2"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -280,8 +366,8 @@ export default function CampaignsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {campaigns.length > 0 ? (
-                campaigns.map((campaign) => (
+              {filteredCampaigns.length > 0 ? (
+                filteredCampaigns.map((campaign) => (
                   <tr key={campaign.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{campaign.name}</td>
                     <td className="px-4 py-3 text-gray-600">{campaign.client?.name || "-"}</td>
@@ -319,7 +405,9 @@ export default function CampaignsPage() {
               ) : (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                    No campaigns found. Click &quot;Add Campaign&quot; to create one.
+                    {campaigns.length > 0
+                      ? "No campaigns match the current filters."
+                      : "No campaigns found. Click \"Add Campaign\" to create one."}
                   </td>
                 </tr>
               )}
@@ -359,6 +447,37 @@ export default function CampaignsPage() {
               onChange={(e) => setForm({ ...form, customType: e.target.value })}
               placeholder="Enter custom campaign type"
             />
+          )}
+          {form.campaignType === "LEADS" && (
+            <div className="border border-gray-200 rounded-lg p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Leads Form Questions</label>
+              <p className="text-xs text-gray-500 mb-3">
+                Name and Phone are included by default. Add the questions to ask for each lead (e.g. Question 1, Question 2).
+              </p>
+              <div className="space-y-2">
+                {form.leadsFormQuestions.map((q, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={q}
+                      onChange={(e) => updateLeadsQuestion(i, e.target.value)}
+                      placeholder={`Question ${i + 1}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeLeadsQuestion(i)}
+                      className="p-2 text-red-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 shrink-0"
+                      title="Remove question"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addLeadsQuestion}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Question
+              </Button>
+            </div>
           )}
           <div className="grid grid-cols-2 gap-4">
             <Input label="Start Date *" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />

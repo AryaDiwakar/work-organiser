@@ -349,6 +349,7 @@ model Campaign {
   dailyBudget  Float?
   totalBudget  Float?
   metrics      String[]     @default([])
+  leadsForm    Json         @default("{}")
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -370,11 +371,27 @@ model CampaignDailyData {
   inAppPurchases Float?
   costPerResult  Float?
   amountSpent    Float?
+  leads          Int?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign      Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignLeads CampaignLead[]
 
   @@unique([campaignId, date])
   @@index([date])
+}
+
+model CampaignLead {
+  id                  String   @id @default(cuid())
+  campaignDailyDataId String
+  name                String
+  phone               String?
+  answers             Json     @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  campaignDailyData CampaignDailyData @relation(fields: [campaignDailyDataId], references: [id], onDelete: Cascade)
+
+  @@index([campaignDailyDataId])
 }
