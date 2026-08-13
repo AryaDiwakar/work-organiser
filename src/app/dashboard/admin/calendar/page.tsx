@@ -110,6 +110,7 @@ export default function CalendarPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [filterClients, setFilterClients] = useState<{ id: string; name: string }[]>([]);
   const [users, setUsers] = useState<{ id: string; name: string; role?: string }[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,6 +140,7 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchEntries();
     fetchClients();
+    fetchFilterClients();
     fetchUsers();
     fetchCategories();
   }, [startDate, endDate, clientFilter, resourceFilter]);
@@ -214,6 +216,16 @@ export default function CalendarPage() {
       setClients(Array.isArray(data) ? data : data.data || []);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
+    }
+  }
+
+  async function fetchFilterClients() {
+    try {
+      const res = await fetch("/api/clients?hasCalendarEntries=true");
+      const data = await res.json();
+      setFilterClients(Array.isArray(data) ? data : data.data || []);
+    } catch (error) {
+      console.error("Failed to fetch calendar clients:", error);
     }
   }
 
@@ -587,7 +599,7 @@ export default function CalendarPage() {
           <Select
             options={[
               { value: "", label: "All Clients" },
-              ...clients.map((c) => ({ value: c.id, label: c.name })),
+              ...filterClients.map((c) => ({ value: c.id, label: c.name })),
             ]}
             value={clientFilter}
             onChange={(e) => setClientFilter(e.target.value)}

@@ -121,6 +121,8 @@ export default function CampaignDetailPage() {
       const v = metricValue(row, key);
       next[key] = v != null ? String(v) : "";
     }
+    const spent = metricValue(row, "amountSpent");
+    next.amountSpent = spent != null ? String(spent) : "";
     setDataForm(next);
   }
 
@@ -138,6 +140,8 @@ export default function CampaignDetailPage() {
         const v = dataForm[key]?.trim();
         body[key] = v ? parseFloat(v) : null;
       }
+      const spent = dataForm.amountSpent?.trim();
+      body.amountSpent = spent ? parseFloat(spent) : null;
       const res = await fetch(`/api/campaigns/${campaign.id}/data`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -193,6 +197,10 @@ export default function CampaignDetailPage() {
   const end = toDateInputValue(campaign.endDate);
   const totalSpent = campaign.dailyData.reduce((sum, d) => sum + (d.amountSpent || 0), 0);
 
+  const showAmountSpentMetric = !campaign.metrics.includes("amountSpent");
+  const formMetrics = campaign.metrics.filter((m) => m !== "amountSpent");
+  const tableMetrics = showAmountSpentMetric ? [...campaign.metrics, "amountSpent"] : campaign.metrics;
+
   const daysInCampaign = Math.max(
     1,
     Math.round((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1
@@ -204,6 +212,9 @@ export default function CampaignDetailPage() {
   const metricTotals: Record<string, number> = {};
   for (const key of campaign.metrics) {
     metricTotals[key] = campaign.dailyData.reduce((sum, d) => sum + (metricValue(d, key) || 0), 0);
+  }
+  if (showAmountSpentMetric) {
+    metricTotals.amountSpent = totalSpent;
   }
 
   const chartData = campaign.dailyData.map((d) => {
@@ -287,9 +298,9 @@ export default function CampaignDetailPage() {
               value={dataDate}
               onChange={(e) => setDataDate(e.target.value)}
             />
-            {campaign.metrics.length > 0 ? (
+            {campaign.metrics.length > 0 || showAmountSpentMetric ? (
               <div className="grid grid-cols-2 gap-4">
-                {campaign.metrics.map((m) => (
+                {formMetrics.map((m) => (
                   <Input
                     key={m}
                     label={getMetricLabel(m)}
@@ -300,6 +311,14 @@ export default function CampaignDetailPage() {
                     placeholder="0"
                   />
                 ))}
+                <Input
+                  label="Amount Spent (₹)"
+                  type="number"
+                  step="any"
+                  value={dataForm.amountSpent || ""}
+                  onChange={(e) => setDataForm({ ...dataForm, amountSpent: e.target.value })}
+                  placeholder="0"
+                />
               </div>
             ) : (
               <p className="text-sm text-gray-400">No metrics were selected for this campaign.</p>
@@ -327,7 +346,7 @@ export default function CampaignDetailPage() {
               <thead>
                 <tr className="bg-gray-50 text-left text-gray-500">
                   <th className="px-4 py-2 font-medium">Date</th>
-                  {campaign.metrics.map((m) => (
+                  {tableMetrics.map((m) => (
                     <th key={m} className="px-4 py-2 font-medium">{getMetricLabel(m)}</th>
                   ))}
                   <th className="px-4 py-2 font-medium text-center">Actions</th>
@@ -338,7 +357,7 @@ export default function CampaignDetailPage() {
                   campaign.dailyData.map((row) => (
                     <tr key={row.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2 text-gray-900 font-medium whitespace-nowrap">{formatDate(row.date)}</td>
-                      {campaign.metrics.map((m) => {
+                      {tableMetrics.map((m) => {
                         const v = metricValue(row, m);
                         return (
                           <td key={m} className="px-4 py-2 text-gray-600">
@@ -368,17 +387,17 @@ export default function CampaignDetailPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={campaign.metrics.length + 2} className="px-4 py-8 text-center text-gray-400">
+                    <td colSpan={tableMetrics.length + 2} className="px-4 py-8 text-center text-gray-400">
                       No daily data recorded yet.
                     </td>
                   </tr>
                 )}
               </tbody>
-              {campaign.dailyData.length > 0 && campaign.metrics.length > 0 && (
+              {campaign.dailyData.length > 0 && tableMetrics.length > 0 && (
                 <tfoot className="bg-gray-50">
                   <tr>
                     <td className="px-4 py-2 font-medium text-gray-700">Total</td>
-                    {campaign.metrics.map((m) => (
+                    {tableMetrics.map((m) => (
                       <td key={m} className="px-4 py-2 font-medium text-gray-900">
                         {metricTotals[m] > 0 ? Number(metricTotals[m]).toLocaleString() : "-"}
                       </td>
