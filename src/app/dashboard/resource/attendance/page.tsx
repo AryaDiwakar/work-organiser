@@ -16,6 +16,7 @@ interface AttendanceRecord {
   loginTime: string | null;
   logoutTime: string | null;
   hoursWorked: number | null;
+  comments: string | null;
   status: string;
 }
 
@@ -45,6 +46,8 @@ export default function ResourceAttendancePage() {
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
   const [leaveForm, setLeaveForm] = useState({ startDate: "", endDate: "", type: "leave", reason: "", permissionHours: "" });
   const [applyingLeave, setApplyingLeave] = useState(false);
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [checkoutComments, setCheckoutComments] = useState("");
 
   useEffect(() => {
     if (userId) fetchData();
@@ -96,9 +99,13 @@ export default function ResourceAttendancePage() {
       const res = await fetch("/api/attendance/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, comments: checkoutComments }),
       });
-      if (res.ok) fetchData();
+      if (res.ok) {
+        setCheckoutModalOpen(false);
+        setCheckoutComments("");
+        fetchData();
+      }
     } catch (error) {
       console.error("Failed to logout:", error);
     } finally {
@@ -151,7 +158,7 @@ export default function ResourceAttendancePage() {
           {todayRecord?.loginTime && todayRecord?.logoutTime ? (
             <Badge variant="success">Checked out today</Badge>
           ) : isLoggedIn ? (
-            <Button onClick={handleLogout} isLoading={loggingOut} variant="danger">
+            <Button onClick={() => setCheckoutModalOpen(true)} variant="danger">
               <LogOut className="h-4 w-4 mr-2" />
               Check Out
             </Button>
@@ -387,6 +394,29 @@ export default function ResourceAttendancePage() {
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setLeaveModalOpen(false)}>Cancel</Button>
             <Button onClick={handleApplyLeave} isLoading={applyingLeave}>Apply</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={checkoutModalOpen} onClose={() => setCheckoutModalOpen(false)} title="Check Out" size="md">
+        <div className="space-y-4">
+          <div className="text-sm text-gray-600">
+            <p>Add notes about today&apos;s work before checking out. These will be included in the daily report.</p>
+          </div>
+          <div className="w-full">
+            <label htmlFor="checkoutComments" className="block text-sm font-medium text-gray-700 mb-1">Notes / Comments</label>
+            <textarea
+              id="checkoutComments"
+              rows={4}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              value={checkoutComments}
+              onChange={(e) => setCheckoutComments(e.target.value)}
+              placeholder="Summarise what you worked on today..."
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setCheckoutModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleLogout} isLoading={loggingOut} variant="danger">Confirm Check Out</Button>
           </div>
         </div>
       </Modal>

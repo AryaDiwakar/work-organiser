@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { userId } = await req.json();
+    const { userId, comments } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
     const updated = await prisma.attendance.update({
       where: { id: attendance.id },
-      data: { logoutTime: now, hoursWorked },
+      data: { logoutTime: now, hoursWorked, comments: typeof comments === "string" && comments.trim() ? comments.trim() : null },
     });
 
     sendDailyReportForLogout(updated.userId).catch(() => {
@@ -104,6 +104,7 @@ async function sendDailyReportForLogout(userId: string) {
     loginTime: attendance?.loginTime ? attendance.loginTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : null,
     logoutTime: attendance?.logoutTime ? attendance.logoutTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : null,
     hoursWorked: attendance?.hoursWorked ?? null,
+    comments: attendance?.comments ?? null,
     tasks,
   });
 }

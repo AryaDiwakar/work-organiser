@@ -15,6 +15,8 @@ export async function GET(req: Request) {
     const assignedTo = searchParams.get("assignedTo");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const completionStartDate = searchParams.get("completionStartDate");
+    const completionEndDate = searchParams.get("completionEndDate");
     const month = searchParams.get("month");
     const year = searchParams.get("year");
 
@@ -26,6 +28,12 @@ export async function GET(req: Request) {
         { assignedTo },
         { assignedToMulti: { has: assignedTo } },
       ];
+    }
+
+    if (completionStartDate || completionEndDate) {
+      where.completionDate = {};
+      if (completionStartDate) (where.completionDate as Record<string, unknown>).gte = new Date(completionStartDate);
+      if (completionEndDate) (where.completionDate as Record<string, unknown>).lte = new Date(completionEndDate + "T23:59:59.999Z");
     }
 
     if (startDate || endDate) {

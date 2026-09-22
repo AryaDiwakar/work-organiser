@@ -15,6 +15,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if ((session.user as { role?: string }).role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date");
@@ -42,7 +45,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const role = session.user?.role;
-    if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
+    if (role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

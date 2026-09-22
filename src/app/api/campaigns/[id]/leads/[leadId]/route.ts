@@ -12,7 +12,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const role = session.user?.role;
-    if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
+    if (role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -53,7 +53,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     const role = session.user?.role;
-    if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
+    if (role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

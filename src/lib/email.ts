@@ -38,6 +38,7 @@ export interface DailyReportEmailData {
   loginTime: string | null;
   logoutTime: string | null;
   hoursWorked: number | null;
+  comments: string | null;
   tasks: DailyReportTask[];
 }
 
@@ -78,6 +79,7 @@ function buildDailyReportHtml(data: DailyReportEmailData): string {
       <p style="margin:4px 0;"><strong>Check-out:</strong> ${data.logoutTime || "-"}</p>
       <p style="margin:4px 0;"><strong>Hours worked:</strong> ${data.hoursWorked != null ? `${data.hoursWorked}h` : "-"}</p>
       <p style="margin:4px 0;"><strong>Total tasks:</strong> ${data.tasks.length}</p>
+      ${data.comments ? `<p style="margin:4px 0;"><strong>Check-out notes:</strong> ${data.comments}</p>` : ""}
     </div>
     <h3 style="color:#111827;font-size:15px;margin:12px 0 8px;">Tasks</h3>
     ${tasksBlock}

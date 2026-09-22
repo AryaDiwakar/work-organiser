@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isAdminRole } from "@/lib/utils";
 
 function getISTDateStart(date: Date): Date {
   const istOffset = 5.5 * 60 * 60 * 1000;
@@ -16,7 +15,7 @@ export async function GET(req: Request) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!isAdminRole((session.user as { role: string }).role)) {
+    if ((session.user as { role: string }).role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -113,6 +112,7 @@ export async function GET(req: Request) {
         loginTime: att?.loginTime ?? null,
         logoutTime: att?.logoutTime ?? null,
         hoursWorked: att?.hoursWorked ?? null,
+        comments: att?.comments ?? null,
         calendarCount: calendarTasks.length,
         adhocCount: adhoc.length,
         totalTasks: calendarTasks.length + adhoc.length,

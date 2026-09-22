@@ -15,6 +15,7 @@ interface EmployeeReport {
   loginTime: string | null;
   logoutTime: string | null;
   hoursWorked: number | null;
+  comments: string | null;
   calendarCount: number;
   adhocCount: number;
   totalTasks: number;
@@ -64,6 +65,7 @@ export default function DailyReportPage() {
       "Check-in": r.loginTime ? formatTime(r.loginTime) : "-",
       "Check-out": r.logoutTime ? formatTime(r.logoutTime) : "-",
       "Hours": r.hoursWorked != null ? `${r.hoursWorked}h` : "-",
+      "Comments": r.comments || "-",
       "Calendar Tasks": r.calendarCount,
       "Adhoc Tasks": r.adhocCount,
       "Total Tasks": r.totalTasks,
@@ -143,6 +145,11 @@ export default function DailyReportPage() {
                   <p className="text-sm text-gray-500 mt-1">
                     Check-in {r.loginTime ? formatTime(r.loginTime) : "-"} &middot; Check-out {r.logoutTime ? formatTime(r.logoutTime) : "-"} &middot; {r.hoursWorked != null ? `${r.hoursWorked}h worked` : "No hours"}
                   </p>
+                  {r.comments && (
+                    <p className="text-sm text-gray-600 mt-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                      <span className="font-medium text-gray-700">Notes:</span> {r.comments}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Tasks</p>

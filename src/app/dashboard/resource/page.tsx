@@ -57,6 +57,7 @@ interface CalendarEntry {
   title: string;
   client: { id: string; name: string } | null;
   postingDate: string;
+  completionDate?: string | null;
   status: string;
   assignedUser: { id: string; name: string } | null;
   postType?: string;
@@ -376,10 +377,13 @@ export default function ResourceDashboardPage() {
   const weekLater = new Date(nowDate);
   weekLater.setDate(weekLater.getDate() + 7);
   const calendarDoneStatuses = ["POSTED", "SCHEDULED", "APPROVED"];
+  const adhocDoneStatuses = ["COMPLETED", "NOT_APPLICABLE"];
+  const visibleCalendar = (t: CalendarEntry) => (!statusFilter ? !calendarDoneStatuses.includes(t.status) : t.status === statusFilter);
+  const visibleAdhoc = (t: AdhocTask) => (!statusFilter ? !adhocDoneStatuses.includes(t.status) : t.status === statusFilter);
 
   const overdueCalendar = tasks.filter((t) => {
     if (calendarDoneStatuses.includes(t.status)) return false;
-    return new Date(t.postingDate) < nowDate;
+    return new Date(t.completionDate || t.postingDate) < nowDate;
   });
 
   const overdueAdhoc = adhocTasks.filter((t) => {
@@ -389,7 +393,7 @@ export default function ResourceDashboardPage() {
 
   const dueThisWeekCalendar = tasks.filter((t) => {
     if (calendarDoneStatuses.includes(t.status)) return false;
-    const d = new Date(t.postingDate);
+    const d = new Date(t.completionDate || t.postingDate);
     return d >= nowDate && d <= weekLater;
   });
 
@@ -510,14 +514,14 @@ export default function ResourceDashboardPage() {
         </div>
       )}
 
-      {adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).length > 0 && (
+      {adhocTasks.filter(visibleAdhoc).length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-indigo-600" />
               <h2 className="text-lg font-semibold text-gray-900">My Adhoc Tasks</h2>
             </div>
-            <span className="text-sm text-gray-500">{adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).length} tasks</span>
+            <span className="text-sm text-gray-500">{adhocTasks.filter(visibleAdhoc).length} tasks</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -532,7 +536,7 @@ export default function ResourceDashboardPage() {
                   </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                  {adhocTasks.filter((t) => !statusFilter || t.status === statusFilter).map((t) => (
+                  {adhocTasks.filter(visibleAdhoc).map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{t.title}</td>
                     <td className="px-5 py-3 text-gray-600">{t.client?.name || "-"}</td>
@@ -619,7 +623,7 @@ export default function ResourceDashboardPage() {
             <Calendar className="h-5 w-5 text-indigo-600" />
             <h2 className="text-lg font-semibold text-gray-900">My Calendar Tasks</h2>
           </div>
-          <span className="text-sm text-gray-500">{tasks.filter((t) => !statusFilter || t.status === statusFilter).length} entries</span>
+          <span className="text-sm text-gray-500">{tasks.filter(visibleCalendar).length} entries</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -635,11 +639,12 @@ export default function ResourceDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {tasks.filter((t) => !statusFilter || t.status === statusFilter).length > 0 ? (
-                tasks.filter((t) => !statusFilter || t.status === statusFilter).map((entry) => {
+              {tasks.filter(visibleCalendar).length > 0 ? (
+                tasks.filter(visibleCalendar).map((entry) => {
                   const sla = getSLAStatus({
                     status: entry.status,
                     postingDate: new Date(entry.postingDate),
+                    completionDate: entry.completionDate ? new Date(entry.completionDate) : null,
                   });
                   return (
                     <tr key={entry.id} className="hover:bg-gray-50">

@@ -10,6 +10,9 @@ export async function GET() {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if ((session.user as { role?: string }).role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const campaigns = await prisma.campaign.findMany({
       orderBy: { createdAt: "desc" },
@@ -30,7 +33,7 @@ export async function POST(req: Request) {
     }
 
     const role = session.user?.role;
-    if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
+    if (role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

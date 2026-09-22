@@ -257,6 +257,7 @@ model Attendance {
   loginTime  DateTime?
   logoutTime DateTime?
   hoursWorked Float?
+  comments   String?
   status     String   @default("present")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

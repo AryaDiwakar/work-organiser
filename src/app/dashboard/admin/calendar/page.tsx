@@ -107,6 +107,8 @@ export default function CalendarPage() {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
   const [startDate, setStartDate] = useState(firstDay.toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(now.toISOString().split("T")[0]);
+  const [completionStartDate, setCompletionStartDate] = useState("");
+  const [completionEndDate, setCompletionEndDate] = useState("");
   const [clientFilter, setClientFilter] = useState("");
   const [resourceFilter, setResourceFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -145,7 +147,7 @@ export default function CalendarPage() {
     fetchFilterClients();
     fetchUsers();
     fetchCategories();
-  }, [startDate, endDate, clientFilter, resourceFilter]);
+  }, [startDate, endDate, clientFilter, resourceFilter, completionStartDate, completionEndDate]);
 
   useEffect(() => {
     if (workDate) {
@@ -199,6 +201,8 @@ export default function CalendarPage() {
       const params = new URLSearchParams();
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
+      if (completionStartDate) params.set("completionStartDate", completionStartDate);
+      if (completionEndDate) params.set("completionEndDate", completionEndDate);
       if (clientFilter) params.set("clientId", clientFilter);
       if (resourceFilter) params.set("assignedTo", resourceFilter);
       const res = await fetch(`/api/calendar?${params}`);
@@ -586,11 +590,22 @@ export default function CalendarPage() {
 
       <div className="flex items-end gap-4">
         <div className="w-44">
+          <label className="block text-xs text-gray-500 mb-1">Posting From</label>
           <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
         <span className="text-gray-400 pb-2">to</span>
         <div className="w-44">
+          <label className="block text-xs text-gray-500 mb-1">Posting To</label>
           <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+        <div className="w-44">
+          <label className="block text-xs text-gray-500 mb-1">Completion From</label>
+          <Input type="date" value={completionStartDate} onChange={(e) => setCompletionStartDate(e.target.value)} />
+        </div>
+        <span className="text-gray-400 pb-2">to</span>
+        <div className="w-44">
+          <label className="block text-xs text-gray-500 mb-1">Completion To</label>
+          <Input type="date" value={completionEndDate} onChange={(e) => setCompletionEndDate(e.target.value)} />
         </div>
         <div className="w-56">
           <Select
@@ -653,6 +668,7 @@ export default function CalendarPage() {
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Platform</th>
                 <th className="px-4 py-3 font-medium">Posting Date</th>
+                <th className="px-4 py-3 font-medium">Completion Date</th>
                 <th className="px-4 py-3 font-medium">Assigned To</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Marked Date</th>
@@ -664,7 +680,7 @@ export default function CalendarPage() {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center">
+                  <td colSpan={12} className="px-4 py-8 text-center">
                     <div className="inline-flex items-center justify-center">
                       <div className="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full" />
                     </div>
@@ -675,6 +691,9 @@ export default function CalendarPage() {
                   const sla = getSLAStatus({
                     status: entry.status,
                     postingDate: new Date(entry.postingDate),
+                    completionDate: entry.completionDate ? new Date(entry.completionDate) : null,
+                    approvalDate: entry.approvalDate ? new Date(entry.approvalDate) : null,
+                    schedulingDate: entry.schedulingDate ? new Date(entry.schedulingDate) : null,
                   });
                   return (
                     <tr key={entry.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openEditModal(entry)}>
@@ -687,6 +706,9 @@ export default function CalendarPage() {
                       <td className="px-4 py-3 text-gray-600">{entry.platform?.join(", ") || "-"}</td>
                       <td className="px-4 py-3 text-gray-600">
                         {formatDate(entry.postingDate)}{entry.postingTime ? ` ${entry.postingTime}` : ""}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {entry.completionDate ? formatDate(entry.completionDate) : "-"}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {entry.assignedUsers && entry.assignedUsers.length > 0

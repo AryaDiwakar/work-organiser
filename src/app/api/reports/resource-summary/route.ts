@@ -40,12 +40,14 @@ export async function GET(req: Request) {
           OR: [{ assignedToMulti: { hasSome: resourceIds } }, { assignedTo: { in: resourceIds } }],
           postingDate: { gte: dateGte, lt: dateLt },
         },
+        include: { client: { select: { id: true, name: true } } },
       }),
       prisma.adhocTask.findMany({
         where: {
           assignedTo: { in: resourceIds },
           createdAt: { gte: dateGte, lt: dateLt },
         },
+        include: { client: { select: { id: true, name: true } } },
       }),
       prisma.taskTimer.findMany({
         where: {
@@ -76,6 +78,50 @@ export async function GET(req: Request) {
         0
       );
 
+      const byClientMap = new Map<string, {
+        clientId: string;
+        clientName: string;
+        calendarAssigned: number;
+        calendarPosted: number;
+        calendarPending: number;
+        adhocAssigned: number;
+        adhocCompleted: number;
+        adhocPending: number;
+        totalTasks: number;
+      }>();
+      const ensureClient = (clientId: string | null, clientName: string) => {
+        const key = clientId || "__unassigned__";
+        if (!byClientMap.has(key)) {
+          byClientMap.set(key, {
+            clientId: clientId || "",
+            clientName,
+            calendarAssigned: 0,
+            calendarPosted: 0,
+            calendarPending: 0,
+            adhocAssigned: 0,
+            adhocCompleted: 0,
+            adhocPending: 0,
+            totalTasks: 0,
+          });
+        }
+        return byClientMap.get(key)!;
+      };
+
+      for (const e of calendar) {
+        const bucket = ensureClient(e.clientId, e.client?.name || "-");
+        bucket.calendarAssigned += 1;
+        if (e.status === "POSTED") bucket.calendarPosted += 1;
+        else bucket.calendarPending += 1;
+        bucket.totalTasks += 1;
+      }
+      for (const t of adhoc) {
+        const bucket = ensureClient(t.clientId, t.client?.name || "-");
+        bucket.adhocAssigned += 1;
+        if (t.status === "COMPLETED") bucket.adhocCompleted += 1;
+        else bucket.adhocPending += 1;
+        bucket.totalTasks += 1;
+      }
+
       return {
         userId: r.id,
         name: r.name,
@@ -89,6 +135,7 @@ export async function GET(req: Request) {
         totalTasks: calendar.length + adhoc.length,
         totalSeconds: seconds,
         sessions: userTimers.length,
+        byClient: Array.from(byClientMap.values()).sort((a, b) => b.totalTasks - a.totalTasks),
       };
     });
 

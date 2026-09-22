@@ -41,6 +41,7 @@ interface CalendarEntry {
   title: string;
   client: { id: string; name: string } | null;
   postingDate: string;
+  completionDate?: string | null;
   status: string;
   assignedUser: { id: string; name: string } | null;
   postType?: string;
@@ -354,6 +355,7 @@ export default function ResourceCalendarPage() {
                 <th className="px-5 py-3 font-medium">Title</th>
                 <th className="px-5 py-3 font-medium">Client</th>
                 <th className="px-5 py-3 font-medium">Posting Date</th>
+                <th className="px-5 py-3 font-medium">Completion Date</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">SLA Status</th>
                 {workDate && <th className="px-5 py-3 font-medium">Time</th>}
@@ -363,7 +365,7 @@ export default function ResourceCalendarPage() {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={workDate ? 7 : 5} className="px-5 py-8 text-center">
+                  <td colSpan={workDate ? 8 : 6} className="px-5 py-8 text-center">
                     <div className="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto" />
                   </td>
                 </tr>
@@ -372,12 +374,14 @@ export default function ResourceCalendarPage() {
                   const sla = getSLAStatus({
                     status: entry.status,
                     postingDate: new Date(entry.postingDate),
+                    completionDate: entry.completionDate ? new Date(entry.completionDate) : null,
                   });
                   return (
                     <tr key={entry.id} className="hover:bg-gray-50">
                       <td className="px-5 py-3 font-medium text-gray-900">{entry.title}</td>
                       <td className="px-5 py-3 text-gray-600">{entry.client?.name || "-"}</td>
                       <td className="px-5 py-3 text-gray-600">{formatDate(new Date(entry.postingDate))}</td>
+                      <td className="px-5 py-3 text-gray-600">{entry.completionDate ? formatDate(new Date(entry.completionDate)) : "-"}</td>
                       <td className="px-5 py-3">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(entry.status)}`}>
                           {getStatusLabel(entry.status)}
@@ -431,7 +435,7 @@ export default function ResourceCalendarPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={workDate ? 7 : 5} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={workDate ? 8 : 6} className="px-5 py-8 text-center text-gray-400">
                     {workDate ? "No calendar tasks with activity on this date." : "No tasks assigned to you for this month."}
                   </td>
                 </tr>

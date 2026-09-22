@@ -284,6 +284,15 @@ export default function ReportsPage() {
     }
   }
 
+  function applyPostMonthPreset(monthsAgo: number) {
+    const start = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+    const end = new Date(now.getFullYear(), now.getMonth() - monthsAgo + 1, 0);
+    const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-01`;
+    const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
+    setPostStartDate(startStr);
+    setPostEndDate(endStr);
+  }
+
   function downloadPostExcel() {
     if (!postReport) return;
     const rows = (postReport.posts || []).map((p: any) => ({
@@ -372,9 +381,24 @@ export default function ReportsPage() {
       "Total Tasks": r.totalTasks,
       "Total Time": formatDuration(r.totalSeconds),
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const clientRows = (resourceSummary.report || []).flatMap((r: any) =>
+      (r.byClient || []).map((c: any) => ({
+        "Resource": r.name,
+        "Client": c.clientName,
+        "Calendar Assigned": c.calendarAssigned,
+        "Calendar Posted": c.calendarPosted,
+        "Calendar Pending": c.calendarPending,
+        "Adhoc Assigned": c.adhocAssigned,
+        "Adhoc Completed": c.adhocCompleted,
+        "Adhoc Pending": c.adhocPending,
+        "Total Tasks": c.totalTasks,
+      }))
+    );
+    const ws1 = XLSX.utils.json_to_sheet(rows);
+    const ws2 = XLSX.utils.json_to_sheet(clientRows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Resource Summary");
+    XLSX.utils.book_append_sheet(wb, ws1, "Resource Summary");
+    if (clientRows.length > 0) XLSX.utils.book_append_sheet(wb, ws2, "Per-client Breakdown");
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([wbout], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
@@ -831,6 +855,14 @@ export default function ReportsPage() {
                     onChange={(e) => setPostClientFilter(e.target.value)}
                   />
                 </div>
+                <div className="flex items-end gap-2 pb-1">
+                  <Button variant="outline" size="sm" onClick={() => applyPostMonthPreset(0)}>
+                    Current Month
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => applyPostMonthPreset(1)}>
+                    Last Month
+                  </Button>
+                </div>
                 <Button onClick={generatePostReport} isLoading={postLoading}>Generate Report</Button>
                 {postReport && (
                   <Button variant="outline" onClick={downloadPostExcel}>
@@ -1097,6 +1129,53 @@ export default function ReportsPage() {
                         </tbody>
                       </table>
                     </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h2 className="text-lg font-semibold text-gray-900">Per-client Resource Breakdown</h2>
+                    {(resourceSummary.report || []).filter((r: any) => (r.byClient || []).length > 0).length === 0 && (
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-400 text-sm">
+                        No client-wise task data found for this month.
+                      </div>
+                    )}
+                    {(resourceSummary.report || []).filter((r: any) => (r.byClient || []).length > 0).map((r: any) => (
+                      <div key={r.userId} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-900">{r.name}</span>
+                          <span className="text-xs text-gray-500">{r.byClient.length} clients &middot; {r.totalTasks} tasks</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-gray-50 text-left text-gray-500">
+                                <th className="px-4 py-2 font-medium">Client</th>
+                                <th className="px-4 py-2 font-medium">Calendar Assigned</th>
+                                <th className="px-4 py-2 font-medium">Calendar Posted</th>
+                                <th className="px-4 py-2 font-medium">Calendar Pending</th>
+                                <th className="px-4 py-2 font-medium">Adhoc Assigned</th>
+                                <th className="px-4 py-2 font-medium">Adhoc Completed</th>
+                                <th className="px-4 py-2 font-medium">Adhoc Pending</th>
+                                <th className="px-4 py-2 font-medium">Total Tasks</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {r.byClient.map((c: any) => (
+                                <tr key={c.clientId || c.clientName} className="hover:bg-gray-50">
+                                  <td className="px-4 py-2 font-medium text-gray-900">{c.clientName}</td>
+                                  <td className="px-4 py-2 text-gray-600">{c.calendarAssigned}</td>
+                                  <td className="px-4 py-2 text-gray-600">{c.calendarPosted}</td>
+                                  <td className="px-4 py-2 text-gray-600">{c.calendarPending}</td>
+                                  <td className="px-4 py-2 text-gray-600">{c.adhocAssigned}</td>
+                                  <td className="px-4 py-2 text-gray-600">{c.adhocCompleted}</td>
+                                  <td className="px-4 py-2 text-gray-600">{c.adhocPending}</td>
+                                  <td className="px-4 py-2 text-gray-900">{c.totalTasks}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (
