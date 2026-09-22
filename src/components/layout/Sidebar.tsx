@@ -35,6 +35,7 @@ const adminLinks = [
   { href: "/dashboard/admin/attendance", label: "Attendance", icon: Clock },
   { href: "/dashboard/admin/leaves", label: "Leaves", icon: CalendarCheck },
   { href: "/dashboard/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/dashboard/admin/daily-report", label: "Daily Report", icon: ClipboardList },
   { href: "/dashboard/admin/credentials", label: "Credentials", icon: Key },
   { href: "/dashboard/admin/settings", label: "Settings", icon: Settings },
 ];
@@ -58,7 +59,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const isAdminView = role === "SUPER_ADMIN" || role === "ADMIN";
 
   const links = isAdminView
-    ? (isSuperAdmin ? adminLinks : adminLinks.filter((l) => !["Leaves", "Attendance", "Resources", "Credentials", "Settings"].includes(l.label)))
+    ? (isSuperAdmin ? adminLinks : adminLinks.filter((l) => !["Leaves", "Attendance", "Resources", "Credentials", "Settings", "Daily Report"].includes(l.label)))
     : resourceLinks;
 
   return (

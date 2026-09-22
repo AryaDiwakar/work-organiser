@@ -29,6 +29,11 @@ const CALENDAR_STATUS_OPTIONS = [
 const TASK_STATUS_OPTIONS = [
   { value: "NEW", label: "New" },
   { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
+  { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGN_COMPLETED", label: "Design Completed" },
+  { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
   { value: "COMPLETED", label: "Completed" },
   { value: "NOT_APPLICABLE", label: "Not Applicable" },
 ];
@@ -47,13 +52,14 @@ interface CalendarForm {
   referenceLinks: string;
   postingDate: string;
   postingTime: string;
+  completionDate: string;
   assignedTo: string;
 }
 
 const defaultForm: CalendarForm = {
   title: "", categoryId: "", postType: "POSTER", platforms: [],
   creativeBrief: "", caption: "", hashtags: "", designDirection: "",
-  referenceLinks: "", postingDate: "", postingTime: "", assignedTo: "",
+  referenceLinks: "", postingDate: "", postingTime: "", completionDate: "", assignedTo: "",
 };
 
 export default function ClientDetailPage() {
@@ -364,6 +370,7 @@ export default function ClientDetailPage() {
                     <th className="px-4 py-3 font-medium">Category</th>
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Posting Date</th>
+                    <th className="px-4 py-3 font-medium">Completed Date</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Time</th>
                   </tr>
@@ -376,6 +383,7 @@ export default function ClientDetailPage() {
                         <td className="px-4 py-3 text-gray-600">{entry.category?.name || "-"}</td>
                         <td className="px-4 py-3 text-gray-600">{entry.postType}</td>
                         <td className="px-4 py-3 text-gray-600">{formatDate(entry.postingDate)}</td>
+                        <td className="px-4 py-3 text-gray-600">{entry.completionDate ? formatDate(entry.completionDate) : "-"}</td>
                         <td className="px-4 py-3">
                           {isAdmin ? (
                             <select
@@ -400,7 +408,7 @@ export default function ClientDetailPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-gray-400">No calendar entries found.</td>
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-400">No calendar entries found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -522,6 +530,10 @@ export default function ClientDetailPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input label="Posting Date" type="date" value={form.postingDate} onChange={(e) => setForm({ ...form, postingDate: e.target.value })} required />
             <Input label="Posting Time" type="time" value={form.postingTime} onChange={(e) => setForm({ ...form, postingTime: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Actual Completion Date" type="date" value={form.completionDate} onChange={(e) => setForm({ ...form, completionDate: e.target.value })} />
+            <div className="pb-2" />
           </div>
           <Select label="Assigned To" options={[{ value: "", label: "Unassigned" }, ...users.map((u) => ({ value: u.id, label: u.name }))]} value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} />
           <div>

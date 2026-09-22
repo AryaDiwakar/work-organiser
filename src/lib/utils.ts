@@ -56,13 +56,14 @@ export function calculateSLADeadlines(postingDate: Date) {
 export function getSLAStatus(entry: {
   status: string;
   postingDate: Date;
+  completionDate?: Date | null;
   approvalDeadline?: Date | null;
   schedulingDeadline?: Date | null;
   approvalDate?: Date | null;
   schedulingDate?: Date | null;
 }): { status: string; label: string; color: string } {
   const now = new Date();
-  const postDate = new Date(entry.postingDate);
+  const postDate = new Date(entry.completionDate ?? entry.postingDate);
 
   const sla = calculateSLADeadlines(postDate);
 
@@ -127,6 +128,36 @@ export function getStatusLabel(status: string): string {
     POSTED: "Posted",
     REJECTED: "Rejected",
     STORYBOARD_COMPLETED: "Storyboard Completed",
+  };
+  return labels[status] || status;
+}
+
+export function getAdhocStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    NEW: "bg-gray-100 text-gray-800",
+    IN_PROGRESS: "bg-blue-100 text-blue-800",
+    INTERNAL_FEEDBACK: "bg-yellow-100 text-yellow-800",
+    CLIENT_FEEDBACK: "bg-orange-100 text-orange-800",
+    STORYBOARD_COMPLETED: "bg-cyan-100 text-cyan-800",
+    DESIGN_COMPLETED: "bg-indigo-100 text-indigo-800",
+    DEVELOPMENT_COMPLETED: "bg-purple-100 text-purple-800",
+    COMPLETED: "bg-green-100 text-green-800",
+    NOT_APPLICABLE: "bg-gray-100 text-gray-800",
+  };
+  return colors[status] || "bg-gray-100 text-gray-800";
+}
+
+export function getAdhocStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    NEW: "New",
+    IN_PROGRESS: "In Progress",
+    INTERNAL_FEEDBACK: "Internal Feedback",
+    CLIENT_FEEDBACK: "Client Feedback",
+    STORYBOARD_COMPLETED: "Storyboard Completed",
+    DESIGN_COMPLETED: "Design Completed",
+    DEVELOPMENT_COMPLETED: "Development Completed",
+    COMPLETED: "Completed",
+    NOT_APPLICABLE: "Not Applicable",
   };
   return labels[status] || status;
 }

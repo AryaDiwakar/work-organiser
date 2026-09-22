@@ -41,6 +41,7 @@ interface CalendarEntry {
   referenceLinks: string[];
   postingDate: string;
   postingTime: string | null;
+  completionDate: string | null;
   assignedUser: { id: string; name: string } | null;
   assignedToMulti: string[];
   assignedUsers: { id: string; name: string }[];
@@ -70,6 +71,7 @@ interface CalendarForm {
   referenceLinks: string;
   postingDate: string;
   postingTime: string;
+  completionDate: string;
   assignedTo: string;
   assignedToMulti: string[];
 }
@@ -78,7 +80,7 @@ const defaultForm: CalendarForm = {
   title: "", clientId: "", categoryId: "", postType: "POSTER",
   platforms: [], creativeBrief: "", caption: "", hashtags: "",
   designDirection: "", referenceLinks: "", postingDate: "", postingTime: "",
-  assignedTo: "", assignedToMulti: [],
+  completionDate: "", assignedTo: "", assignedToMulti: [],
 };
 
 const POST_TYPES_MULTI_RESOURCE = ["REEL", "VIDEO"];
@@ -283,6 +285,7 @@ export default function CalendarPage() {
       referenceLinks: (entry.referenceLinks || []).join("\n"),
       postingDate: entry.postingDate?.split("T")[0] || "",
       postingTime: entry.postingTime || "",
+      completionDate: entry.completionDate?.split("T")[0] || "",
       assignedTo: entry.assignedUser?.id || "",
       assignedToMulti: entry.assignedToMulti || entry.assignedUsers?.map((u) => u.id) || [],
     });
@@ -339,6 +342,7 @@ export default function CalendarPage() {
         referenceLinks: form.referenceLinks.split("\n").map((r) => r.trim()).filter(Boolean),
         postingDate: form.postingDate,
         postingTime: form.postingTime,
+        completionDate: form.completionDate || undefined,
         assignedTo: isMultiResource ? (form.assignedToMulti.length > 0 ? form.assignedToMulti[0] : null) : (form.assignedTo || null),
         assignedToMulti: isMultiResource ? form.assignedToMulti : [],
       };
@@ -498,6 +502,9 @@ export default function CalendarPage() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Input label="Posting Date" type="date" value={form.postingDate} onChange={(e) => setForm({ ...form, postingDate: e.target.value })} required />
+        <Input label="Actual Completion Date" type="date" value={form.completionDate} onChange={(e) => setForm({ ...form, completionDate: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         {isMultiResource ? (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Assign To Resources</label>

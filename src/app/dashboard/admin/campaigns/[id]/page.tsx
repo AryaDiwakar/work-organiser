@@ -176,10 +176,8 @@ export default function CampaignDetailPage() {
       }
       const spent = dataForm.amountSpent?.trim();
       body.amountSpent = spent ? parseFloat(spent) : null;
-      if (campaign.campaignType === "LEADS") {
-        const leadsVal = dataForm.leads?.trim();
-        body.leads = leadsVal ? parseInt(leadsVal, 10) : null;
-      }
+      const leadsVal = dataForm.leads?.trim();
+      body.leads = leadsVal ? parseInt(leadsVal, 10) : null;
       const res = await fetch(`/api/campaigns/${campaign.id}/data`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -312,7 +310,7 @@ export default function CampaignDetailPage() {
   const formMetrics = campaign.metrics.filter((m) => m !== "amountSpent");
   const baseTableMetrics = showAmountSpentMetric ? [...campaign.metrics, "amountSpent"] : campaign.metrics;
   const isLeadsCampaign = campaign.campaignType === "LEADS";
-  const tableMetrics = isLeadsCampaign ? [...baseTableMetrics, "leads"] : baseTableMetrics;
+  const tableMetrics = baseTableMetrics.includes("leads") ? baseTableMetrics : [...baseTableMetrics, "leads"];
   const leadsQuestions = campaign.leadsForm?.questions || [];
 
   const daysInCampaign = Math.max(
@@ -330,16 +328,14 @@ export default function CampaignDetailPage() {
   if (showAmountSpentMetric) {
     metricTotals.amountSpent = totalSpent;
   }
-  if (isLeadsCampaign) {
-    metricTotals.leads = campaign.dailyData.reduce((sum, d) => sum + (d.leads || 0), 0);
-  }
+  metricTotals.leads = campaign.dailyData.reduce((sum, d) => sum + (d.leads || 0), 0);
 
-  const chartMetrics = isLeadsCampaign ? [...campaign.metrics, "leads"] : campaign.metrics;
+  const chartMetrics = campaign.metrics.includes("leads") ? campaign.metrics : [...campaign.metrics, "leads"];
 
   const chartData = campaign.dailyData.map((d) => {
     const point: Record<string, string | number | null> = { date: formatDate(d.date) };
     for (const m of campaign.metrics) point[m] = metricValue(d, m);
-    if (isLeadsCampaign) point.leads = metricValue(d, "leads");
+    point.leads = metricValue(d, "leads");
     return point;
   });
 
@@ -418,7 +414,7 @@ export default function CampaignDetailPage() {
               value={dataDate}
               onChange={(e) => setDataDate(e.target.value)}
             />
-            {campaign.metrics.length > 0 || showAmountSpentMetric || isLeadsCampaign ? (
+            {campaign.metrics.length > 0 || showAmountSpentMetric ? (
               <div className="grid grid-cols-2 gap-4">
                 {formMetrics.map((m) => (
                   <Input
@@ -439,17 +435,15 @@ export default function CampaignDetailPage() {
                   onChange={(e) => setDataForm({ ...dataForm, amountSpent: e.target.value })}
                   placeholder="0"
                 />
-                {isLeadsCampaign && (
-                  <Input
-                    label="Leads (count)"
-                    type="number"
-                    step="1"
-                    min={0}
-                    value={dataForm.leads || ""}
-                    onChange={(e) => setDataForm({ ...dataForm, leads: e.target.value })}
-                    placeholder="0"
-                  />
-                )}
+                <Input
+                  label="Leads (count)"
+                  type="number"
+                  step="1"
+                  min={0}
+                  value={dataForm.leads || ""}
+                  onChange={(e) => setDataForm({ ...dataForm, leads: e.target.value })}
+                  placeholder="0"
+                />
               </div>
             ) : (
               <p className="text-sm text-gray-400">No metrics were selected for this campaign.</p>
@@ -542,8 +536,7 @@ export default function CampaignDetailPage() {
         </div>
       </div>
 
-      {isLeadsCampaign && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Leads</h2>
           <p className="text-sm text-gray-500 mb-5">
             {dataDate ? `Leads for ${formatDate(dataDate)}` : "Select a date above to add leads."}
@@ -642,7 +635,6 @@ export default function CampaignDetailPage() {
             </div>
           </div>
         </div>
-      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Campaign Performance</h2>

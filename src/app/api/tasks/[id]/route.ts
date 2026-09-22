@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+const RESOURCE_ALLOWED_STATUSES = ["STORYBOARD_COMPLETED", "DESIGN_COMPLETED", "DEVELOPMENT_COMPLETED"];
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
@@ -18,9 +20,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const body = await req.json();
     const userRole = (session.user as { role: string }).role;
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
 
-    if (body.status && userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Only ADMIN can modify status" }, { status: 403 });
+    if (body.status !== undefined) {
+      if (!isAdmin && !RESOURCE_ALLOWED_STATUSES.includes(body.status)) {
+        return NextResponse.json(
+          { error: "Resources can only set Storyboard, Design, or Development Completed" },
+          { status: 403 }
+        );
+      }
+      if (!isAdmin && existing.status === "COMPLETED") {
+        return NextResponse.json({ error: "Task is already completed" }, { status: 400 });
+      }
     }
 
     const updateData: Record<string, unknown> = {};
@@ -28,7 +39,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (body.description !== undefined) updateData.description = body.description;
     if (body.deadline !== undefined) updateData.deadline = new Date(body.deadline);
     if (body.assignedTo !== undefined) updateData.assignedTo = body.assignedTo;
-    if (body.status !== undefined) updateData.status = body.status;
+
+    if (body.status !== undefined && body.status !== existing.status) {
+      updateData.status = body.status;
+      const history = Array.isArray(existing.statusHistory) ? (existing.statusHistory as unknown[]) : [];
+      updateData.statusHistory = [
+        ...history,
+        {
+          from: existing.status,
+          to: body.status,
+          changedAt: new Date().toISOString(),
+          changedBy: (session.user as { name?: string }).name || "unknown",
+        },
+      ];
+    }
 
     const task = await prisma.adhocTask.update({
       where: { id: id },

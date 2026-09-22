@@ -30,9 +30,14 @@ const ADHOC_STATUS_OPTIONS = [
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
   { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGN_COMPLETED", label: "Design Completed" },
+  { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
   { value: "COMPLETED", label: "Completed" },
   { value: "NOT_APPLICABLE", label: "Not Applicable" },
 ];
+
+const RESOURCE_ALLOWED_ADHOC_STATUSES = ["STORYBOARD_COMPLETED", "DESIGN_COMPLETED", "DEVELOPMENT_COMPLETED"];
 
 function getDeadlineColor(deadline: string | null, status?: string): string {
   if (!deadline) return "";
@@ -367,6 +372,32 @@ export default function ResourceDashboardPage() {
     );
   }
 
+  const nowDate = new Date(now);
+  const weekLater = new Date(nowDate);
+  weekLater.setDate(weekLater.getDate() + 7);
+  const calendarDoneStatuses = ["POSTED", "SCHEDULED", "APPROVED"];
+
+  const overdueCalendar = tasks.filter((t) => {
+    if (calendarDoneStatuses.includes(t.status)) return false;
+    return new Date(t.postingDate) < nowDate;
+  });
+
+  const overdueAdhoc = adhocTasks.filter((t) => {
+    if (t.status === "COMPLETED" || t.status === "NOT_APPLICABLE") return false;
+    return !!t.deadline && new Date(t.deadline) < nowDate;
+  });
+
+  const dueThisWeekCalendar = tasks.filter((t) => {
+    if (calendarDoneStatuses.includes(t.status)) return false;
+    const d = new Date(t.postingDate);
+    return d >= nowDate && d <= weekLater;
+  });
+
+  const dueThisWeekAdhoc = adhocTasks.filter((t) => {
+    if (t.status === "COMPLETED" || t.status === "NOT_APPLICABLE") return false;
+    return !!t.deadline && new Date(t.deadline) >= nowDate && new Date(t.deadline) <= weekLater;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between">
@@ -410,18 +441,67 @@ export default function ResourceDashboardPage() {
         </div>
       </div>
 
-      {upcoming.length > 0 && (
+      {overdueCalendar.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-red-800 mb-3">
+            <AlertTriangle className="h-5 w-5" />
+            <h2 className="font-semibold">Overdue Calendar Posts ({overdueCalendar.length})</h2>
+          </div>
+          <div className="space-y-2">
+            {overdueCalendar.map((t) => (
+              <div key={t.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-red-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{t.title}</p>
+                  <p className="text-xs text-gray-500">{t.client?.name || "-"} &middot; Posting date: {formatDate(new Date(t.postingDate))}</p>
+                </div>
+                <Badge variant="danger">{getStatusLabel(t.status)}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {overdueAdhoc.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-red-800 mb-3">
+            <AlertTriangle className="h-5 w-5" />
+            <h2 className="font-semibold">Overdue Adhoc Tasks ({overdueAdhoc.length})</h2>
+          </div>
+          <div className="space-y-2">
+            {overdueAdhoc.map((t) => (
+              <div key={t.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-red-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{t.title}</p>
+                  <p className="text-xs text-gray-500">{t.client?.name || "-"} &middot; Deadline: {t.deadline ? formatDate(new Date(t.deadline)) : "-"}</p>
+                </div>
+                <Badge variant="danger">{getStatusLabel(t.status)}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(dueThisWeekCalendar.length > 0 || dueThisWeekAdhoc.length > 0) && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <div className="flex items-center gap-2 text-amber-800 mb-3">
             <AlertTriangle className="h-5 w-5" />
-            <h2 className="font-semibold">Upcoming Deadlines (Next 7 Days)</h2>
+            <h2 className="font-semibold">Due This Week (Next 7 Days)</h2>
           </div>
           <div className="space-y-2">
-            {upcoming.map((t) => (
+            {dueThisWeekCalendar.map((t) => (
               <div key={t.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-amber-100">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{t.title}</p>
-                  <p className="text-xs text-gray-500">{t.client?.name || "-"} &middot; {formatDate(new Date(t.postingDate))}</p>
+                  <p className="text-xs text-gray-500">{t.client?.name || "-"} &middot; Posting date: {formatDate(new Date(t.postingDate))}</p>
+                </div>
+                <Badge variant="warning">{getStatusLabel(t.status)}</Badge>
+              </div>
+            ))}
+            {dueThisWeekAdhoc.map((t) => (
+              <div key={t.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-amber-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{t.title}</p>
+                  <p className="text-xs text-gray-500">{t.client?.name || "-"} &middot; Deadline: {t.deadline ? formatDate(new Date(t.deadline)) : "-"}</p>
                 </div>
                 <Badge variant="warning">{getStatusLabel(t.status)}</Badge>
               </div>
@@ -749,7 +829,7 @@ export default function ResourceDashboardPage() {
             </div>
             <Select
               label="Status"
-              options={ADHOC_STATUS_OPTIONS}
+              options={isAdminUser ? ADHOC_STATUS_OPTIONS : ADHOC_STATUS_OPTIONS.filter((s) => RESOURCE_ALLOWED_ADHOC_STATUSES.includes(s.value))}
               value={editAdhocStatus}
               onChange={(e) => setEditAdhocStatus(e.target.value)}
             />

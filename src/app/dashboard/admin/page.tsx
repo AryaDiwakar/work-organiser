@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { formatDate, getStatusLabel, getStatusColor, getSLAStatus } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
-import { Users, Calendar, UserCheck, AlertTriangle } from "lucide-react";
+import { Users, Calendar, UserCheck, AlertTriangle, KeyRound } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -13,6 +13,7 @@ const PIE_COLORS = ["#22c55e", "#eab308", "#ef4444"];
 
 export default function AdminDashboardPage() {
   const { data: session } = useSession();
+  const isSuperAdmin = (session?.user as any)?.role === "SUPER_ADMIN";
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalClients: 0,
@@ -23,10 +24,42 @@ export default function AdminDashboardPage() {
   const [statusDistribution, setStatusDistribution] = useState<{ status: string; count: number }[]>([]);
   const [slaDistribution, setSLADistribution] = useState<{ name: string; value: number }[]>([]);
   const [recentEntries, setRecentEntries] = useState<any[]>([]);
+  const [expiringCredentials, setExpiringCredentials] = useState<any[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    if (isSuperAdmin) fetchExpiringCredentials();
+  }, [isSuperAdmin]);
+
+  async function fetchExpiringCredentials() {
+    try {
+      const res = await fetch("/api/credentials");
+      const data = await res.json();
+      const creds = Array.isArray(data) ? data : data.data || [];
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const cutoff = new Date(now);
+      cutoff.setDate(cutoff.getDate() + 7);
+      setExpiringCredentials(
+        creds.filter((c: any) => {
+          if (!c.expiryDate) return false;
+          const exp = new Date(c.expiryDate);
+          exp.setHours(0, 0, 0, 0);
+          return exp <= cutoff;
+        })
+      );
+    } catch (error) {
+      console.error("Failed to fetch credentials:", error);
+    }
+  }
+
+  function daysUntil(expiryDate: string): number {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const exp = new Date(expiryDate);
+    exp.setHours(0, 0, 0, 0);
+    return Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }
 
   async function fetchDashboardData() {
     setLoading(true);
@@ -132,6 +165,47 @@ export default function AdminDashboardPage() {
           </div>
         ))}
       </div>
+
+      {isSuperAdmin && expiringCredentials.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+          <div className="p-4 border-b border-amber-200 flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-amber-800" />
+            <h2 className="font-semibold text-amber-900">Credentials Expiring Soon (Next 7 Days)</h2>
+            <span className="text-sm text-amber-700 ml-auto">{expiringCredentials.length} expiring</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-amber-100/50 text-left text-amber-800">
+                  <th className="px-4 py-2 font-medium">Client</th>
+                  <th className="px-4 py-2 font-medium">Type</th>
+                  <th className="px-4 py-2 font-medium">Username</th>
+                  <th className="px-4 py-2 font-medium">Expiry Date</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-100">
+                {expiringCredentials.map((c: any) => {
+                  const days = daysUntil(c.expiryDate);
+                  return (
+                    <tr key={c.id} className="hover:bg-amber-50">
+                      <td className="px-4 py-2 font-medium text-gray-900">{c.client?.name || "-"}</td>
+                      <td className="px-4 py-2 text-gray-600">{c.customType || c.credentialType}</td>
+                      <td className="px-4 py-2 text-gray-600">{c.username}</td>
+                      <td className="px-4 py-2 text-gray-600">{formatDate(c.expiryDate)}</td>
+                      <td className="px-4 py-2">
+                        <Badge variant={days < 0 ? "danger" : "warning"}>
+                          {days < 0 ? `Expired ${Math.abs(days)} days ago` : days === 0 ? "Expires today" : `In ${days} days`}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">

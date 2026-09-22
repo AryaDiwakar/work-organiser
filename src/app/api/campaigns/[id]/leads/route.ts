@@ -50,9 +50,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!campaign) {
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
-    if (campaign.campaignType !== "LEADS") {
-      return NextResponse.json({ error: "Campaign is not a leads campaign" }, { status: 400 });
-    }
 
     const body = await req.json();
     const { date, name, phone, answers } = body;

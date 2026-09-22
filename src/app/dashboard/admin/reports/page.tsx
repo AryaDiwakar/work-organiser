@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { getStatusLabel, formatDate, formatDuration } from "@/lib/utils";
+import { getStatusLabel, getStatusColor, formatDate, formatDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
@@ -14,7 +14,7 @@ import {
 } from "recharts";
 
 const PIE_COLORS = ["#6366f1", "#22c55e", "#eab308", "#ef4444", "#3b82f6", "#ec4899"];
-type ReportTab = "client" | "attendance" | "time";
+type ReportTab = "client" | "attendance" | "time" | "post" | "clientSummary" | "resourceSummary";
 
 function toDateKey(d: Date): string {
   const y = d.getFullYear();
@@ -79,6 +79,25 @@ export default function ReportsPage() {
   const [timeReport, setTimeReport] = useState<any>(null);
   const [timeLoading, setTimeLoading] = useState(false);
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+
+  // Post status report state
+  const [postStartDate, setPostStartDate] = useState("");
+  const [postEndDate, setPostEndDate] = useState("");
+  const [postClientFilter, setPostClientFilter] = useState("");
+  const [postReport, setPostReport] = useState<any>(null);
+  const [postLoading, setPostLoading] = useState(false);
+
+  // Client summary report state
+  const [csMonth, setCsMonth] = useState(String(now.getMonth() + 1));
+  const [csYear, setCsYear] = useState(String(now.getFullYear()));
+  const [clientSummary, setClientSummary] = useState<any>(null);
+  const [clientSummaryLoading, setClientSummaryLoading] = useState(false);
+
+  // Resource summary report state
+  const [rsMonth, setRsMonth] = useState(String(now.getMonth() + 1));
+  const [rsYear, setRsYear] = useState(String(now.getFullYear()));
+  const [resourceSummary, setResourceSummary] = useState<any>(null);
+  const [resourceSummaryLoading, setResourceSummaryLoading] = useState(false);
 
   useEffect(() => {
     fetchClients();
@@ -249,6 +268,123 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function generatePostReport() {
+    if (!postStartDate || !postEndDate) return;
+    setPostLoading(true);
+    try {
+      const params = new URLSearchParams({ startDate: postStartDate, endDate: postEndDate });
+      if (postClientFilter) params.set("clientId", postClientFilter);
+      const res = await fetch(`/api/reports/post-status?${params}`);
+      const data = await res.json();
+      setPostReport(data);
+    } catch (error) {
+      console.error("Failed to generate post status report:", error);
+    } finally {
+      setPostLoading(false);
+    }
+  }
+
+  function downloadPostExcel() {
+    if (!postReport) return;
+    const rows = (postReport.posts || []).map((p: any) => ({
+      "Title": p.title,
+      "Client": p.client,
+      "Category": p.category,
+      "Platform": Array.isArray(p.platform) ? p.platform.join(", ") : (p.platform || "-"),
+      "Posting Date": formatDate(p.postingDate),
+      "Completion Date": p.completionDate ? formatDate(p.completionDate) : "-",
+      "Status": getStatusLabel(p.status),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Posts");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `post_status_report_${postStartDate}_to_${postEndDate}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function generateClientSummary() {
+    setClientSummaryLoading(true);
+    try {
+      const params = new URLSearchParams({ month: csMonth, year: csYear });
+      const res = await fetch(`/api/reports/client-summary?${params}`);
+      const data = await res.json();
+      setClientSummary(data);
+    } catch (error) {
+      console.error("Failed to generate client summary:", error);
+    } finally {
+      setClientSummaryLoading(false);
+    }
+  }
+
+  function downloadClientSummaryExcel() {
+    if (!clientSummary) return;
+    const rows = (clientSummary.clients || []).map((c: any) => ({
+      "Client": c.clientName,
+      "Total Posts": c.totalPosts,
+      "Posted": c.posted,
+      "Pending": c.pending,
+      "Total Reach": c.totalReach,
+      "Total Engagement": c.totalEngagement,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Client Summary");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `client_summary_${csMonth}_${csYear}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function generateResourceSummary() {
+    setResourceSummaryLoading(true);
+    try {
+      const params = new URLSearchParams({ month: rsMonth, year: rsYear });
+      const res = await fetch(`/api/reports/resource-summary?${params}`);
+      const data = await res.json();
+      setResourceSummary(data);
+    } catch (error) {
+      console.error("Failed to generate resource summary:", error);
+    } finally {
+      setResourceSummaryLoading(false);
+    }
+  }
+
+  function downloadResourceSummaryExcel() {
+    if (!resourceSummary) return;
+    const rows = (resourceSummary.report || []).map((r: any) => ({
+      "Resource": r.name,
+      "Calendar Assigned": r.calendarAssigned,
+      "Calendar Posted": r.calendarPosted,
+      "Calendar Pending": r.calendarPending,
+      "Adhoc Assigned": r.adhocAssigned,
+      "Adhoc Completed": r.adhocCompleted,
+      "Adhoc Pending": r.adhocPending,
+      "Total Tasks": r.totalTasks,
+      "Total Time": formatDuration(r.totalSeconds),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Resource Summary");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `resource_summary_${rsMonth}_${rsYear}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
     value: String(i + 1), label: new Date(2024, i).toLocaleString("default", { month: "long" }),
   }));
@@ -260,6 +396,9 @@ export default function ReportsPage() {
 
   const tabs = [
     { key: "client" as ReportTab, label: "Client Work Report", icon: BarChart3 },
+    { key: "post" as ReportTab, label: "Post Status Report", icon: FileText },
+    { key: "clientSummary" as ReportTab, label: "Client-wise Summary", icon: Users },
+    { key: "resourceSummary" as ReportTab, label: "Resource-wise Summary", icon: Users },
     { key: "time" as ReportTab, label: "Time Report", icon: Clock },
     ...(isSuperAdmin ? [{ key: "attendance" as ReportTab, label: "Attendance Report", icon: Users }] : []),
   ];
@@ -669,6 +808,301 @@ export default function ReportsPage() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                   <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-400">Generate attendance report to view resource data.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "post" && (
+            <div className="space-y-6">
+              <div className="flex items-end gap-4">
+                <div className="w-44">
+                  <Input label="Start Date" type="date" value={postStartDate} onChange={(e) => setPostStartDate(e.target.value)} />
+                </div>
+                <span className="text-gray-400 pb-2">to</span>
+                <div className="w-44">
+                  <Input label="End Date" type="date" value={postEndDate} onChange={(e) => setPostEndDate(e.target.value)} />
+                </div>
+                <div className="w-56">
+                  <Select
+                    label="Client"
+                    options={[{ value: "", label: "All Clients" }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
+                    value={postClientFilter}
+                    onChange={(e) => setPostClientFilter(e.target.value)}
+                  />
+                </div>
+                <Button onClick={generatePostReport} isLoading={postLoading}>Generate Report</Button>
+                {postReport && (
+                  <Button variant="outline" onClick={downloadPostExcel}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                )}
+              </div>
+
+              {postReport ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Total Posts</p>
+                      <p className="text-2xl font-bold text-gray-900">{postReport.totalPosts || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Posted</p>
+                      <p className="text-2xl font-bold text-green-600">{postReport.posted || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Scheduled</p>
+                      <p className="text-2xl font-bold text-purple-600">{postReport.scheduled || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Pending</p>
+                      <p className="text-2xl font-bold text-yellow-600">{postReport.pending || 0}</p>
+                    </div>
+                  </div>
+
+                  {postReport.statusDistribution?.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                      <h2 className="text-lg font-semibold text-gray-900 mb-4">Status Breakdown</h2>
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={postReport.statusDistribution}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="status" tickFormatter={(v) => getStatusLabel(v)} fontSize={11} />
+                            <YAxis />
+                            <Tooltip formatter={(value) => [value, "Count"]} labelFormatter={(v) => getStatusLabel(v)} />
+                            <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200">
+                      <h2 className="text-lg font-semibold text-gray-900">Post-wise Status</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 text-left text-gray-500">
+                            <th className="px-4 py-3 font-medium">Title</th>
+                            <th className="px-4 py-3 font-medium">Client</th>
+                            <th className="px-4 py-3 font-medium">Category</th>
+                            <th className="px-4 py-3 font-medium">Platform</th>
+                            <th className="px-4 py-3 font-medium">Posting Date</th>
+                            <th className="px-4 py-3 font-medium">Completion Date</th>
+                            <th className="px-4 py-3 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {(postReport.posts || []).map((p: any) => (
+                            <tr key={p.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 font-medium text-gray-900">{p.title}</td>
+                              <td className="px-4 py-3 text-gray-600">{p.client}</td>
+                              <td className="px-4 py-3 text-gray-600">{p.category}</td>
+                              <td className="px-4 py-3 text-gray-600">{Array.isArray(p.platform) ? p.platform.join(", ") : (p.platform || "-")}</td>
+                              <td className="px-4 py-3 text-gray-600">{formatDate(p.postingDate)}</td>
+                              <td className="px-4 py-3 text-gray-600">{p.completionDate ? formatDate(p.completionDate) : "-"}</td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(p.status)}`}>
+                                  {getStatusLabel(p.status)}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                          {(postReport.posts || []).length === 0 && (
+                            <tr>
+                              <td colSpan={7} className="px-4 py-8 text-center text-gray-400">No posts found.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-400">Select a date range and generate report to view post status.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "clientSummary" && (
+            <div className="space-y-6">
+              <div className="flex items-end gap-4">
+                <div className="w-40">
+                  <Select label="Month" options={monthOptions} value={csMonth} onChange={(e) => setCsMonth(e.target.value)} />
+                </div>
+                <div className="w-32">
+                  <Select label="Year" options={yearOptions} value={csYear} onChange={(e) => setCsYear(e.target.value)} />
+                </div>
+                <Button onClick={generateClientSummary} isLoading={clientSummaryLoading}>Generate Report</Button>
+                {clientSummary && (
+                  <Button variant="outline" onClick={downloadClientSummaryExcel}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                )}
+              </div>
+
+              {clientSummary ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Total Clients</p>
+                      <p className="text-2xl font-bold text-gray-900">{clientSummary.totalClients || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Total Posts</p>
+                      <p className="text-2xl font-bold text-indigo-600">{clientSummary.totalPosts || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Month</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {new Date(parseInt(csYear), parseInt(csMonth) - 1).toLocaleString("default", { month: "long", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200">
+                      <h2 className="text-lg font-semibold text-gray-900">Client-wise Summary</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 text-left text-gray-500">
+                            <th className="px-4 py-3 font-medium">Client</th>
+                            <th className="px-4 py-3 font-medium">Total Posts</th>
+                            <th className="px-4 py-3 font-medium">Posted</th>
+                            <th className="px-4 py-3 font-medium">Pending</th>
+                            <th className="px-4 py-3 font-medium">Total Reach</th>
+                            <th className="px-4 py-3 font-medium">Total Engagement</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {(clientSummary.clients || []).map((c: any) => (
+                            <tr key={c.clientId} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 font-medium text-gray-900">{c.clientName}</td>
+                              <td className="px-4 py-3 text-gray-600">{c.totalPosts}</td>
+                              <td className="px-4 py-3">
+                                <Badge variant="success">{c.posted}</Badge>
+                              </td>
+                              <td className="px-4 py-3 text-gray-600">{c.pending}</td>
+                              <td className="px-4 py-3 text-gray-600">{c.totalReach || 0}</td>
+                              <td className="px-4 py-3 text-gray-600">{c.totalEngagement || 0}</td>
+                            </tr>
+                          ))}
+                          {(clientSummary.clients || []).length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="px-4 py-8 text-center text-gray-400">No client data found.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-400">Generate a client-wise summary report.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "resourceSummary" && (
+            <div className="space-y-6">
+              <div className="flex items-end gap-4">
+                <div className="w-40">
+                  <Select label="Month" options={monthOptions} value={rsMonth} onChange={(e) => setRsMonth(e.target.value)} />
+                </div>
+                <div className="w-32">
+                  <Select label="Year" options={yearOptions} value={rsYear} onChange={(e) => setRsYear(e.target.value)} />
+                </div>
+                <Button onClick={generateResourceSummary} isLoading={resourceSummaryLoading}>Generate Report</Button>
+                {resourceSummary && (
+                  <Button variant="outline" onClick={downloadResourceSummaryExcel}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                )}
+              </div>
+
+              {resourceSummary ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Total Resources</p>
+                      <p className="text-2xl font-bold text-gray-900">{resourceSummary.totalResources || 0}</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Total Tasks</p>
+                      <p className="text-2xl font-bold text-indigo-600">
+                        {(resourceSummary.report || []).reduce((s: number, r: any) => s + (r.totalTasks || 0), 0)}
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
+                      <p className="text-sm text-gray-500">Month</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {new Date(parseInt(rsYear), parseInt(rsMonth) - 1).toLocaleString("default", { month: "long", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200">
+                      <h2 className="text-lg font-semibold text-gray-900">Resource-wise Summary</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 text-left text-gray-500">
+                            <th className="px-4 py-3 font-medium">Resource</th>
+                            <th className="px-4 py-3 font-medium">Calendar Assigned</th>
+                            <th className="px-4 py-3 font-medium">Calendar Posted</th>
+                            <th className="px-4 py-3 font-medium">Calendar Pending</th>
+                            <th className="px-4 py-3 font-medium">Adhoc Assigned</th>
+                            <th className="px-4 py-3 font-medium">Adhoc Completed</th>
+                            <th className="px-4 py-3 font-medium">Adhoc Pending</th>
+                            <th className="px-4 py-3 font-medium">Total Tasks</th>
+                            <th className="px-4 py-3 font-medium">Total Time</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {(resourceSummary.report || []).map((r: any) => (
+                            <tr key={r.userId} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 font-medium text-gray-900">{r.name}</td>
+                              <td className="px-4 py-3 text-gray-600">{r.calendarAssigned}</td>
+                              <td className="px-4 py-3">
+                                <Badge variant="success">{r.calendarPosted}</Badge>
+                              </td>
+                              <td className="px-4 py-3 text-gray-600">{r.calendarPending}</td>
+                              <td className="px-4 py-3 text-gray-600">{r.adhocAssigned}</td>
+                              <td className="px-4 py-3 text-gray-600">{r.adhocCompleted}</td>
+                              <td className="px-4 py-3 text-gray-600">{r.adhocPending}</td>
+                              <td className="px-4 py-3 text-gray-600">{r.totalTasks}</td>
+                              <td className="px-4 py-3 text-gray-900 font-mono">{formatDuration(r.totalSeconds)}</td>
+                            </tr>
+                          ))}
+                          {(resourceSummary.report || []).length === 0 && (
+                            <tr>
+                              <td colSpan={9} className="px-4 py-8 text-center text-gray-400">No resource data found.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-400">Generate a resource-wise summary report.</p>
                 </div>
               )}
             </div>

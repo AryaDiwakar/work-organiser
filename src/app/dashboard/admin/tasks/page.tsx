@@ -37,9 +37,14 @@ const TASK_STATUS_OPTIONS = [
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
   { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGN_COMPLETED", label: "Design Completed" },
+  { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
   { value: "COMPLETED", label: "Completed" },
   { value: "NOT_APPLICABLE", label: "Not Applicable" },
 ];
+
+const CLOSED_STATUSES = ["COMPLETED", "NOT_APPLICABLE"];
 
 function getDeadlineColor(deadline: string | null, status?: string): string {
   if (!deadline) return "";
@@ -70,6 +75,9 @@ function getStatusBadgeVariant(status: string) {
     case "INTERNAL_FEEDBACK": return "warning" as const;
     case "CLIENT_FEEDBACK": return "danger" as const;
     case "NEW": return "warning" as const;
+    case "STORYBOARD_COMPLETED": return "info" as const;
+    case "DESIGN_COMPLETED": return "info" as const;
+    case "DEVELOPMENT_COMPLETED": return "info" as const;
     case "NOT_APPLICABLE": return "default" as const;
     default: return "default" as const;
   }
@@ -346,7 +354,7 @@ export default function TasksPage() {
                       {task.deadline ? formatDate(task.deadline) : "-"}
                     </td>
                     <td className="px-5 py-3">
-                      {(task.status === "COMPLETED" || task.status === "NOT_APPLICABLE") ? (
+                      {CLOSED_STATUSES.includes(task.status) ? (
                         <Badge variant={getStatusBadgeVariant(task.status)}>
                           {task.status.replace(/_/g, " ")}
                         </Badge>
@@ -390,6 +398,15 @@ export default function TasksPage() {
                             onClick={() => openEditModal(task)}
                             className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
                             title="Edit task"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                        )}
+                        {isAdmin && CLOSED_STATUSES.includes(task.status) && (
+                          <button
+                            onClick={() => handleStatusChange(task.id, "NEW")}
+                            className="p-1.5 text-green-600 hover:bg-green-50 transition-colors rounded-lg hover:bg-green-100"
+                            title="Reopen task"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>

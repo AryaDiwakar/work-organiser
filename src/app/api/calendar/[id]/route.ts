@@ -32,6 +32,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (body.platforms !== undefined) updateData.platform = body.platforms;
     if (body.postingDate !== undefined) updateData.postingDate = new Date(body.postingDate);
     if (body.postingTime !== undefined) updateData.postingTime = body.postingTime;
+    if (body.completionDate !== undefined) {
+      updateData.completionDate = body.completionDate ? new Date(body.completionDate) : null;
+    }
     if (body.assignedTo !== undefined) updateData.assignedTo = body.assignedTo;
     if (body.assignedToMulti !== undefined) updateData.assignedToMulti = body.assignedToMulti;
     if (body.creativeBrief !== undefined) updateData.creativeBrief = body.creativeBrief;

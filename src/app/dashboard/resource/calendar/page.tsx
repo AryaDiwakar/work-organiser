@@ -1,11 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, formatDuration, fetchTimerTotals } from "@/lib/utils";
+import { formatDate, getStatusLabel, getStatusColor, getSLAStatus, formatDuration, fetchTimerTotals, getAdhocStatusColor, getAdhocStatusLabel, isAdminRole } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Badge } from "@/components/ui/Badge";
 import { TimeLogModal } from "@/components/ui/TimeLogModal";
 import { Modal } from "@/components/ui/Modal";
 import { Calendar, Clock, Play, Pause, Square, ClipboardList, Eye, Pencil } from "lucide-react";
@@ -28,9 +27,14 @@ const ADHOC_STATUS_OPTIONS = [
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "INTERNAL_FEEDBACK", label: "Internal Feedback" },
   { value: "CLIENT_FEEDBACK", label: "Client Feedback" },
+  { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGN_COMPLETED", label: "Design Completed" },
+  { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
   { value: "COMPLETED", label: "Completed" },
   { value: "NOT_APPLICABLE", label: "Not Applicable" },
 ];
+
+const RESOURCE_ALLOWED_ADHOC_STATUSES = ["STORYBOARD_COMPLETED", "DESIGN_COMPLETED", "DEVELOPMENT_COMPLETED"];
 
 interface CalendarEntry {
   id: string;
@@ -61,6 +65,8 @@ interface AdhocTask {
 export default function ResourceCalendarPage() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
+  const role = (session?.user as any)?.role || "";
+  const isAdminUser = isAdminRole(role);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [workDate, setWorkDate] = useState("");
@@ -461,9 +467,9 @@ export default function ResourceCalendarPage() {
                     <td className="px-5 py-3 text-gray-600">{task.client?.name || "-"}</td>
                     <td className="px-5 py-3 text-gray-600">{task.deadline ? formatDate(new Date(task.deadline)) : "-"}</td>
                     <td className="px-5 py-3">
-                      <Badge variant={task.status === "COMPLETED" ? "success" : task.status === "IN_PROGRESS" ? "info" : "default"}>
-                        {task.status.replace(/_/g, " ")}
-                      </Badge>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getAdhocStatusColor(task.status)}`}>
+                        {getAdhocStatusLabel(task.status)}
+                      </span>
                     </td>
                     <td className="px-5 py-3 text-xs text-gray-500 font-mono">
                       {formatDuration(getAdhocTimerElapsed(task.id))}
@@ -561,7 +567,7 @@ export default function ResourceCalendarPage() {
             <div><span className="font-medium text-gray-500">Title:</span> <span className="text-gray-900">{viewAdhocTask.title}</span></div>
             <div><span className="font-medium text-gray-500">Client:</span> <span className="text-gray-900">{viewAdhocTask.client?.name || "-"}</span></div>
             <div><span className="font-medium text-gray-500">Deadline:</span> <span className="text-gray-900">{viewAdhocTask.deadline ? formatDate(new Date(viewAdhocTask.deadline)) : "-"}</span></div>
-            <div><span className="font-medium text-gray-500">Status:</span> <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${viewAdhocTask.status === "COMPLETED" ? "bg-green-100 text-green-700" : viewAdhocTask.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>{viewAdhocTask.status.replace(/_/g, " ")}</span></div>
+            <div><span className="font-medium text-gray-500">Status:</span> <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getAdhocStatusColor(viewAdhocTask.status)}`}>{getAdhocStatusLabel(viewAdhocTask.status)}</span></div>
             {viewAdhocTask.description && <div><span className="font-medium text-gray-500">Description:</span> <span className="text-gray-900">{viewAdhocTask.description}</span></div>}
           </div>
           <div className="flex justify-end pt-4">
@@ -579,7 +585,7 @@ export default function ResourceCalendarPage() {
             </div>
             <Select
               label="Status"
-              options={ADHOC_STATUS_OPTIONS}
+              options={isAdminUser ? ADHOC_STATUS_OPTIONS : ADHOC_STATUS_OPTIONS.filter((s) => RESOURCE_ALLOWED_ADHOC_STATUSES.includes(s.value))}
               value={editAdhocStatus}
               onChange={(e) => setEditAdhocStatus(e.target.value)}
             />
