@@ -28,13 +28,17 @@ export async function GET(req: Request) {
     const dateGte = new Date(y, m - 1, 1);
     const dateLt = new Date(y, m, 1);
 
-    const clients = clientId
+    const clients = (clientId
       ? await prisma.client.findMany({ where: { id: clientId, isActive: true }, select: { id: true, name: true } })
-      : await prisma.client.findMany({ where: { isActive: true }, select: { id: true, name: true } });
+      : await prisma.client.findMany({ where: { isActive: true }, select: { id: true, name: true } }))
+      .reduce<Record<string, string>>((acc, c) => {
+        acc[c.id] = c.name;
+        return acc;
+      }, {});
 
     const posts = await prisma.calendarEntry.findMany({
       where: {
-        clientId: clientId ? clientId : { in: clients.map((c) => c.id) },
+        clientId: clientId ? clientId : { in: Object.keys(clients) },
         postingDate: { gte: dateGte, lt: dateLt },
       },
       include: {
@@ -44,22 +48,23 @@ export async function GET(req: Request) {
 
     const byClient = new Map<string, { clientId: string; clientName: string; totalPosts: number; posted: number; pending: number; statusDistribution: Record<string, number>; totalReach: number; totalEngagement: number }>();
 
-    for (const c of clients) {
-      byClient.set(c.id, {
-        clientId: c.id,
-        clientName: c.name,
-        totalPosts: 0,
-        posted: 0,
-        pending: 0,
-        statusDistribution: {},
-        totalReach: 0,
-        totalEngagement: 0,
-      });
-    }
-
     for (const p of posts) {
-      const row = byClient.get(p.clientId);
-      if (!row) continue;
+      const clientName = clients[p.clientId];
+      if (!clientName) continue;
+      let row = byClient.get(p.clientId);
+      if (!row) {
+        row = {
+          clientId: p.clientId,
+          clientName,
+          totalPosts: 0,
+          posted: 0,
+          pending: 0,
+          statusDistribution: {},
+          totalReach: 0,
+          totalEngagement: 0,
+        };
+        byClient.set(p.clientId, row);
+      }
       row.totalPosts += 1;
       if (p.status === "POSTED") row.posted += 1;
       else row.pending += 1;

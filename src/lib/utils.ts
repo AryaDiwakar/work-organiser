@@ -112,6 +112,8 @@ export function getStatusColor(status: string): string {
     POSTED: "bg-emerald-100 text-emerald-800",
     REJECTED: "bg-red-100 text-red-800",
     STORYBOARD_COMPLETED: "bg-cyan-100 text-cyan-800",
+    DESIGN_COMPLETED: "bg-indigo-100 text-indigo-800",
+    DEVELOPMENT_COMPLETED: "bg-purple-100 text-purple-800",
   };
   return colors[status] || "bg-gray-100 text-gray-800";
 }
@@ -128,6 +130,8 @@ export function getStatusLabel(status: string): string {
     POSTED: "Posted",
     REJECTED: "Rejected",
     STORYBOARD_COMPLETED: "Storyboard Completed",
+    DESIGN_COMPLETED: "Design Completed",
+    DEVELOPMENT_COMPLETED: "Development Completed",
   };
   return labels[status] || status;
 }

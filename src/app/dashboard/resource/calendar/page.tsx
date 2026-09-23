@@ -12,6 +12,8 @@ import { Calendar, Clock, Play, Pause, Square, ClipboardList, Eye, Pencil } from
 const CALENDAR_STATUS_OPTIONS = [
   { value: "YET_TO_BE_DONE", label: "Yet to be done" },
   { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGN_COMPLETED", label: "Design Completed" },
+  { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
   { value: "DESIGNED", label: "Designed" },
   { value: "SHARED_TO_CLIENT", label: "Shared to client" },
   { value: "APPROVED", label: "Approved" },
@@ -35,6 +37,7 @@ const ADHOC_STATUS_OPTIONS = [
 ];
 
 const RESOURCE_ALLOWED_ADHOC_STATUSES = ["STORYBOARD_COMPLETED", "DESIGN_COMPLETED", "DEVELOPMENT_COMPLETED"];
+const RESOURCE_ALLOWED_CALENDAR_STATUSES = ["STORYBOARD_COMPLETED", "DESIGN_COMPLETED", "DEVELOPMENT_COMPLETED"];
 
 interface CalendarEntry {
   id: string;
@@ -325,6 +328,8 @@ export default function ResourceCalendarPage() {
               { value: "", label: "All Statuses" },
               { value: "YET_TO_BE_DONE", label: "Yet to be done" },
               { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+              { value: "DESIGN_COMPLETED", label: "Design Completed" },
+              { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
               { value: "DESIGNED", label: "Designed" },
               { value: "SHARED_TO_CLIENT", label: "Shared to client" },
               { value: "APPROVED", label: "Approved" },
@@ -553,7 +558,7 @@ export default function ResourceCalendarPage() {
             </div>
             <Select
               label="Status"
-              options={CALENDAR_STATUS_OPTIONS}
+              options={isAdminUser ? CALENDAR_STATUS_OPTIONS : CALENDAR_STATUS_OPTIONS.filter((s) => RESOURCE_ALLOWED_CALENDAR_STATUSES.includes(s.value))}
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value)}
             />

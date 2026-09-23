@@ -119,6 +119,8 @@ enum CalendarStatus {
   POSTED
   REJECTED
   STORYBOARD_COMPLETED
+  DESIGN_COMPLETED
+  DEVELOPMENT_COMPLETED
 }
 
 model CalendarEntry {
@@ -145,6 +147,8 @@ model CalendarEntry {
   schedulingDeadline DateTime?
   storyboardCompletedDate DateTime?
   designedDate       DateTime?
+  designCompletedDate DateTime?
+  developmentCompletedDate DateTime?
   sharedToClientDate DateTime?
   approvalDate       DateTime?
   internalFeedbackDate DateTime?

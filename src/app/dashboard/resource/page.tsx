@@ -15,6 +15,8 @@ const PLATFORMS = ["Linkedin", "Facebook", "Instagram", "Youtube", "Google", "Tw
 const STATUS_OPTIONS = [
   { value: "YET_TO_BE_DONE", label: "Yet to be done" },
   { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGN_COMPLETED", label: "Design Completed" },
+  { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
   { value: "DESIGNED", label: "Designed" },
   { value: "SHARED_TO_CLIENT", label: "Shared to client" },
   { value: "APPROVED", label: "Approved" },
@@ -38,6 +40,7 @@ const ADHOC_STATUS_OPTIONS = [
 ];
 
 const RESOURCE_ALLOWED_ADHOC_STATUSES = ["STORYBOARD_COMPLETED", "DESIGN_COMPLETED", "DEVELOPMENT_COMPLETED"];
+const RESOURCE_ALLOWED_CALENDAR_STATUSES = ["STORYBOARD_COMPLETED", "DESIGN_COMPLETED", "DEVELOPMENT_COMPLETED"];
 
 function getDeadlineColor(deadline: string | null, status?: string): string {
   if (!deadline) return "";
@@ -425,6 +428,8 @@ export default function ResourceDashboardPage() {
                 { value: "", label: "All Statuses" },
                 { value: "YET_TO_BE_DONE", label: "Yet to be done" },
                 { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+                { value: "DESIGN_COMPLETED", label: "Design Completed" },
+                { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
                 { value: "DESIGNED", label: "Designed" },
                 { value: "SHARED_TO_CLIENT", label: "Shared to client" },
                 { value: "APPROVED", label: "Approved" },
@@ -798,7 +803,7 @@ export default function ResourceDashboardPage() {
             </div>
             <Select
               label="Status"
-              options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
+              options={(isAdminUser ? STATUS_OPTIONS : STATUS_OPTIONS.filter((s) => RESOURCE_ALLOWED_CALENDAR_STATUSES.includes(s.value))).map((s) => ({ value: s.value, label: s.label }))}
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value)}
             />

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { isAdminRole } from "@/lib/utils";
+
+const RESOURCE_ALLOWED_STATUSES = ["STORYBOARD_COMPLETED", "DESIGN_COMPLETED", "DEVELOPMENT_COMPLETED"];
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,9 +21,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const body = await req.json();
     const userRole = (session.user as { role: string }).role;
+    const isAdmin = isAdminRole(userRole);
 
-    if (body.status && userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Only ADMIN can change status" }, { status: 403 });
+    if (body.status !== undefined && !isAdmin && !RESOURCE_ALLOWED_STATUSES.includes(body.status)) {
+      return NextResponse.json(
+        { error: "Resources can only set Storyboard, Design, or Development Completed" },
+        { status: 403 }
+      );
     }
 
     const updateData: Record<string, unknown> = {};
@@ -48,6 +55,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       const now = new Date();
       switch (body.status) {
         case "STORYBOARD_COMPLETED": updateData.storyboardCompletedDate = now; break;
+        case "DESIGN_COMPLETED": updateData.designCompletedDate = now; break;
+        case "DEVELOPMENT_COMPLETED": updateData.developmentCompletedDate = now; break;
         case "DESIGNED": updateData.designedDate = now; break;
         case "SHARED_TO_CLIENT": updateData.sharedToClientDate = now; break;
         case "APPROVED": updateData.approvalDate = now; break;

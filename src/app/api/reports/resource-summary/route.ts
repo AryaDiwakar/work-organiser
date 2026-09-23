@@ -57,7 +57,8 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    const report = resources.map((r) => {
+    const report = resources
+      .map((r) => {
       const calendar = calendarEntries.filter((e) => {
         const ids = [...(e.assignedToMulti || []), ...(e.assignedTo ? [e.assignedTo] : [])];
         return ids.includes(r.id);
@@ -137,7 +138,8 @@ export async function GET(req: Request) {
         sessions: userTimers.length,
         byClient: Array.from(byClientMap.values()).sort((a, b) => b.totalTasks - a.totalTasks),
       };
-    });
+      })
+      .filter((r) => r.totalTasks > 0 || r.totalSeconds > 0);
 
     return NextResponse.json({
       month,

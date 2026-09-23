@@ -480,6 +480,12 @@ export default function ReportsPage() {
               </div>
 
               {report ? (
+                report.totalPosts === 0 ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-400">No data available for this period.</p>
+                  </div>
+                ) : (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
@@ -564,6 +570,7 @@ export default function ReportsPage() {
                     ) : <p className="text-gray-400 text-center py-8">No category data available.</p>}
                   </div>
                 </div>
+                )
               ) : (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                   <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -873,6 +880,12 @@ export default function ReportsPage() {
               </div>
 
               {postReport ? (
+                postReport.totalPosts === 0 ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-400">No data available for this period.</p>
+                  </div>
+                ) : (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 text-center">
@@ -953,6 +966,7 @@ export default function ReportsPage() {
                     </div>
                   </div>
                 </div>
+                )
               ) : (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                   <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />

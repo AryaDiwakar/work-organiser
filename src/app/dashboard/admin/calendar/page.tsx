@@ -17,6 +17,8 @@ const POST_TYPES = ["POSTER", "REEL", "VIDEO", "GIF", "CAROUSEL", "STORY", "STAT
 const STATUS_OPTIONS = [
   { value: "YET_TO_BE_DONE", label: "Yet to be done" },
   { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGN_COMPLETED", label: "Design Completed" },
+  { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
   { value: "DESIGNED", label: "Designed" },
   { value: "SHARED_TO_CLIENT", label: "Shared to client" },
   { value: "APPROVED", label: "Approved" },
@@ -49,6 +51,8 @@ interface CalendarEntry {
   slaStatus: string | null;
   storyboardCompletedDate: string | null;
   designedDate: string | null;
+  designCompletedDate: string | null;
+  developmentCompletedDate: string | null;
   sharedToClientDate: string | null;
   approvalDate: string | null;
   internalFeedbackDate: string | null;
@@ -88,6 +92,8 @@ const POST_TYPES_MULTI_RESOURCE = ["REEL", "VIDEO"];
 function getStatusDate(entry: CalendarEntry): string | null {
   switch (entry.status) {
     case "STORYBOARD_COMPLETED": return entry.storyboardCompletedDate;
+    case "DESIGN_COMPLETED": return entry.designCompletedDate;
+    case "DEVELOPMENT_COMPLETED": return entry.developmentCompletedDate;
     case "DESIGNED": return entry.designedDate;
     case "SHARED_TO_CLIENT": return entry.sharedToClientDate;
     case "APPROVED": return entry.approvalDate;

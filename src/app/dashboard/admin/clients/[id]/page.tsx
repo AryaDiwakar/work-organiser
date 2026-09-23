@@ -16,6 +16,8 @@ const POST_TYPES = ["POSTER", "REEL", "VIDEO", "GIF", "CAROUSEL", "STORY", "STAT
 const CALENDAR_STATUS_OPTIONS = [
   { value: "YET_TO_BE_DONE", label: "Yet to be done" },
   { value: "STORYBOARD_COMPLETED", label: "Storyboard Completed" },
+  { value: "DESIGN_COMPLETED", label: "Design Completed" },
+  { value: "DEVELOPMENT_COMPLETED", label: "Development Completed" },
   { value: "DESIGNED", label: "Designed" },
   { value: "SHARED_TO_CLIENT", label: "Shared to client" },
   { value: "APPROVED", label: "Approved" },
