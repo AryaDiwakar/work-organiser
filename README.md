@@ -34,3 +34,35 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Environment
+
+Copy `.env.example` to `.env.local` (or `.env` for local runs) and set:
+
+- `DATABASE_URL` — PostgreSQL connection string
+- `NEXTAUTH_SECRET` — generate with `openssl rand -base64 32`
+- `NEXTAUTH_URL` — e.g. `http://localhost:3000`
+
+Optional: `OPENAI_API_KEY` and the `SMTP_*` variables for reports/emails.
+
+Run `npm run db:push` to sync the schema and `npm run db:seed` for demo users.
+
+## Modules
+
+### Adhoc Tasks
+
+The default listing shows only active tasks. Use the status filter to view
+**Completed / Closed** tasks (Completed and Not Applicable), individual statuses,
+or all tasks. Closed tasks are never deleted automatically.
+
+### Finance
+
+Available to admins from the sidebar and protected by the same access password
+as the Sales module (`GoDrive`). It supports:
+
+- Date-filtered summary (Current Month / Last Month / Custom Date)
+- Client-wise bills with multiple payment line items per client
+- Multiple payment-instalment entries per bill
+- Automatic billed / received / outstanding calculations
+
+Finance data is stored in the `FinanceBill` and `FinancePayment` Prisma models.
