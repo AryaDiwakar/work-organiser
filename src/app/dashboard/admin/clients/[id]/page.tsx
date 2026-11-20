@@ -97,7 +97,7 @@ export default function ClientDetailPage() {
       const [clientRes, calendarRes, tasksRes, reportRes] = await Promise.all([
         fetch(`/api/clients/${id}`),
         fetch(`/api/calendar?clientId=${id}&month=${month}&year=${year}`),
-        fetch(`/api/tasks?clientId=${id}`),
+        fetch(`/api/tasks?clientId=${id}&status=ALL`),
         fetch(`/api/reports?clientId=${id}&month=${month}&year=${year}`),
       ]);
 

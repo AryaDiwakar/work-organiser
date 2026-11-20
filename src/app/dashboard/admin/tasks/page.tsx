@@ -92,7 +92,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [clientFilter, setClientFilter] = useState("");
   const [resourceFilter, setResourceFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -109,7 +109,7 @@ export default function TasksPage() {
     fetchTasks();
     fetchClients();
     fetchUsers();
-  }, [clientFilter, resourceFilter, startDate, endDate]);
+  }, [clientFilter, resourceFilter, statusFilter, startDate, endDate]);
 
   useEffect(() => {
     if (tasks.length) {
@@ -126,6 +126,7 @@ export default function TasksPage() {
       const params = new URLSearchParams();
       if (clientFilter) params.set("clientId", clientFilter);
       if (resourceFilter) params.set("assignedTo", resourceFilter);
+      params.set("status", statusFilter);
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
       const res = await fetch(`/api/tasks?${params}`);
@@ -153,7 +154,7 @@ export default function TasksPage() {
       const res = await fetch("/api/users");
       const data = await res.json();
       const usersData = Array.isArray(data) ? data : data.data || [];
-      setUsers(usersData.filter((u: any) => u.isActive));
+      setUsers(usersData.filter((u: { isActive: boolean }) => u.isActive));
     } catch (error) {
       console.error("Failed to fetch users:", error);
     }
@@ -262,7 +263,7 @@ export default function TasksPage() {
     URL.revokeObjectURL(url);
   }
 
-  const sortedTasks = sortByDeadline(tasks).filter((t) => !statusFilter || t.status === statusFilter);
+  const sortedTasks = sortByDeadline(tasks);
 
   return (
     <div className="space-y-6">
@@ -298,7 +299,7 @@ export default function TasksPage() {
           <Select
             options={[
               { value: "", label: "All Resources" },
-              ...users.filter((u: any) => u.role !== "SUPER_ADMIN").map((u) => ({ value: u.id, label: u.name })),
+              ...users.filter((u) => u.role !== "SUPER_ADMIN").map((u) => ({ value: u.id, label: u.name })),
             ]}
             value={resourceFilter}
             onChange={(e) => setResourceFilter(e.target.value)}
@@ -307,8 +308,10 @@ export default function TasksPage() {
         <div className="w-52">
           <Select
             options={[
-              { value: "", label: "All Statuses" },
+              { value: "ACTIVE", label: "Active Tasks" },
+              { value: "CLOSED", label: "Completed / Closed" },
               ...TASK_STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
+              { value: "ALL", label: "All Tasks" },
             ]}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -425,7 +428,11 @@ export default function TasksPage() {
               ) : (
                 <tr>
                   <td colSpan={7} className="px-5 py-8 text-center text-gray-400">
-                    No tasks found. Click &quot;Add Task&quot; to create one.
+                    {statusFilter === "CLOSED"
+                      ? "No completed or closed tasks found."
+                      : statusFilter === "ACTIVE"
+                        ? "No active tasks found. Click \"Add Task\" to create one."
+                        : "No tasks match the selected filter."}
                   </td>
                 </tr>
               )}

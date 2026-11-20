@@ -84,6 +84,7 @@ model Client {
   adhocTasks   AdhocTask[]
   credentials  Credential[]
   campaigns    Campaign[]
+  financeBills FinanceBill[]
 }
 
 model Category {
@@ -404,4 +405,36 @@ model CampaignLead {
   campaignDailyData CampaignDailyData @relation(fields: [campaignDailyDataId], references: [id], onDelete: Cascade)
 
   @@index([campaignDailyDataId])
+}
+
+// A bill / payment milestone raised for a client.
+model FinanceBill {
+  id             String   @id @default(cuid())
+  clientId       String
+  dueDate        DateTime
+  value          Float
+  paymentTowards String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  client   Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  payments FinancePayment[]
+
+  @@index([clientId])
+  @@index([dueDate])
+}
+
+// An instalment received against a bill. Multiple entries are allowed per bill.
+model FinancePayment {
+  id           String   @id @default(cuid())
+  billId       String
+  amount       Float
+  receivedDate DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  bill FinanceBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([billId])
+  @@index([receivedDate])
 }

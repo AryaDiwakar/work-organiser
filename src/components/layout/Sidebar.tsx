@@ -20,12 +20,14 @@ import {
   Key,
   TrendingUp,
   Megaphone,
+  Wallet,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 
 const adminLinks = [
   { href: "/dashboard/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/admin/sales", label: "Sales", icon: TrendingUp },
+  { href: "/dashboard/admin/finance", label: "Finance", icon: Wallet },
   { href: "/dashboard/admin/clients", label: "Clients", icon: Building2 },
   { href: "/dashboard/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/dashboard/admin/campaigns", label: "Campaigns", icon: Megaphone },
@@ -54,7 +56,7 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const role = (session?.user as any)?.role;
+  const role = session?.user?.role;
   const isSuperAdmin = role === "SUPER_ADMIN";
   const isAdminView = role === "SUPER_ADMIN" || role === "ADMIN";
 

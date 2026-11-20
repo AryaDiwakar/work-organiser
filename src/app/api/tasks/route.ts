@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { AdhocStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+
+const CLOSED_STATUSES: AdhocStatus[] = [AdhocStatus.COMPLETED, AdhocStatus.NOT_APPLICABLE];
 
 export async function GET(req: Request) {
   try {
@@ -16,8 +19,9 @@ export async function GET(req: Request) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const ids = searchParams.get("ids");
+    const status = searchParams.get("status");
 
-    const where: Record<string, unknown> = {};
+    const where: Prisma.AdhocTaskWhereInput = {};
     if (clientId) where.clientId = clientId;
     if (assignedTo) where.assignedTo = assignedTo;
     if (ids) {
@@ -25,10 +29,21 @@ export async function GET(req: Request) {
       where.id = { in: idList };
     }
 
+    // Closed tasks stay in the database and remain available via the
+    // Completed/Closed filter, but are hidden from the default listing.
+    if (status === "ACTIVE" || !status) {
+      where.status = { notIn: CLOSED_STATUSES };
+    } else if (status === "CLOSED") {
+      where.status = { in: CLOSED_STATUSES };
+    } else if (status !== "ALL") {
+      where.status = status as AdhocStatus;
+    }
+
     if (startDate || endDate) {
-      where.deadline = {};
-      if (startDate) (where.deadline as Record<string, unknown>).gte = new Date(startDate);
-      if (endDate) (where.deadline as Record<string, unknown>).lte = new Date(endDate + "T23:59:59.999Z");
+      const deadlineFilter: Prisma.DateTimeNullableFilter = {};
+      if (startDate) deadlineFilter.gte = new Date(startDate);
+      if (endDate) deadlineFilter.lte = new Date(endDate + "T23:59:59.999Z");
+      where.deadline = deadlineFilter;
     }
 
     const tasks = await prisma.adhocTask.findMany({
