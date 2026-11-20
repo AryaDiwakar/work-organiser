@@ -174,7 +174,9 @@ export default function FinancePage() {
 
   const clientGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const filtered = bills.filter(
+    // Base the list on the due-date-filtered bills so the date filter applies
+    // to the bill history as well as the summary cards.
+    const filtered = periodBills.filter(
       (bill) =>
         !q ||
         bill.client.name.toLowerCase().includes(q) ||
@@ -191,7 +193,7 @@ export default function FinancePage() {
       }
     }
     return Array.from(grouped.values());
-  }, [bills, search]);
+  }, [periodBills, search]);
 
   function openAddBill(clientId?: string) {
     setEditingBill(null);
@@ -442,7 +444,11 @@ export default function FinancePage() {
         </div>
       ) : clientGroups.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-12 text-center text-gray-400">
-          {search ? "No finance entries match your search." : "No finance entries yet. Click \"Add Entry\" to create one."}
+          {search
+            ? "No finance entries match your search."
+            : bills.length > 0
+              ? "No bills are due in the selected date period."
+              : "No finance entries yet. Click \"Add Entry\" to create one."}
         </div>
       ) : (
         <div className="space-y-5">
